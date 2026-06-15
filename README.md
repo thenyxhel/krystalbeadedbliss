@@ -106,3 +106,4 @@ Defined as CSS variables in `src/index.css`, toggled by adding/removing the `dar
 | `--tx` | `#0C2D3D` | `#EBE0CC` |
 | `--gold` | `#C8921A` | `#D4A830` |
 | `--pink` | `#CC1F6E` | `#E83B8A` |
+ 
