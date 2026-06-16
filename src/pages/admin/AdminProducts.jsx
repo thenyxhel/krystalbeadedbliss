@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { fmt, cap } from '../../lib/utils'
 import { useToast, ToastContainer } from '../../components/Toast'
 
-const CATS = ['bracelet', 'necklace', 'earrings', 'anklet', 'set']
+const CATS = ['bracelet', 'necklace', 'earrings', 'set']
 
 const EMPTY = { name: '', category: 'bracelet', description: '', price: '', available: true, featured: false, images: [] }
 

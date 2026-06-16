@@ -5,7 +5,7 @@ import ProductCard from '../components/ProductCard'
 import { useToast, ToastContainer } from '../components/Toast'
 import { cap } from '../lib/utils'
 
-const CATS = ['all', 'bracelet', 'necklace', 'earrings', 'anklet', 'set']
+const CATS = ['all', 'bracelet', 'necklace', 'earrings', 'set']
 
 export default function ShopPage() {
   const [params, setParams] = useSearchParams()

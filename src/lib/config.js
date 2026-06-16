@@ -11,7 +11,7 @@ export const CONFIG = {
     fee: 0,
     note: 'Delivery is free — arranged after order confirmation.',
   },
-  categories: ['bracelet', 'necklace', 'earrings', 'anklet', 'set'],
+  categories: ['bracelet', 'necklace', 'earrings', 'set'],
   orderStatuses: ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'],
 }
 

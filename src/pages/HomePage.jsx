@@ -10,7 +10,6 @@ const CATEGORIES = [
   { key: 'bracelet', label: 'Bracelets',  emoji: '📿' },
   { key: 'necklace', label: 'Necklaces',  emoji: '💫' },
   { key: 'earrings', label: 'Earrings',   emoji: '✨' },
-  { key: 'anklet',   label: 'Anklets',    emoji: '💛' },
   { key: 'set',      label: 'Sets',       emoji: '💎' },
 ]
 
@@ -49,7 +48,7 @@ export default function HomePage() {
             className="inline-flex items-center gap-2 text-xs font-bold tracking-widest uppercase mb-6 px-4 py-2 rounded-full"
             style={{ color: 'var(--gold)', border: '1px solid rgba(212,168,48,0.3)', background: 'var(--goldl)' }}
           >
-            ✦ Handcrafted in Lagos
+            ✦ Be"U"tiful
           </div>
 
           <h1
@@ -80,7 +79,7 @@ export default function HomePage() {
           <p className="section-eyebrow">Browse by type</p>
           <h2 className="section-title">What are you looking for?</h2>
         </div>
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {CATEGORIES.map(c => (
             <Link
               key={c.key}
@@ -152,22 +151,27 @@ export default function HomePage() {
       </section>
 
       {/* ── Sweet Soirée banner ─────────────────────────── */}
-      <section className="max-w-5xl mx-auto px-6 py-16 text-center">
-        <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: 'var(--tx2)' }}>
-          Also from Krystal
-        </p>
-        <a
-          href={CONFIG.sweetSoiree}
-          target="_blank"
-          rel="noreferrer"
-          className="font-serif text-2xl font-semibold no-underline transition-colors"
-          style={{ color: 'var(--gold)' }}
-          onMouseEnter={e => e.target.style.color = 'var(--gold2)'}
-          onMouseLeave={e => e.target.style.color = 'var(--gold)'}
-        >
-          Visit The Sweet Soirée ↗
-        </a>
-        <p className="text-sm mt-2" style={{ color: 'var(--tx2)' }}>Hair accessories &amp; beauty</p>
+      <section
+        className="relative overflow-hidden"
+        style={{ background: 'var(--surf)', borderTop: '1px solid var(--bd)' }}
+      >
+        <div className="max-w-5xl mx-auto px-6 py-16 text-center relative z-10">
+          <p className="text-xs font-semibold tracking-widest uppercase mb-2" style={{ color: 'var(--tx2)' }}>
+            Sister Store
+          </p>
+          <a
+            href={CONFIG.sweetSoiree}
+            target="_blank"
+            rel="noreferrer"
+            className="font-serif text-3xl font-semibold no-underline transition-colors block mb-2"
+            style={{ color: 'var(--gold)' }}
+            onMouseEnter={e => e.target.style.color = 'var(--gold2)'}
+            onMouseLeave={e => e.target.style.color = 'var(--gold)'}
+          >
+            The Sweet Soirée ↗
+          </a>
+          <p className="text-sm" style={{ color: 'var(--tx2)' }}>Hair accessories &amp; beauty — a world of their own.</p>
+        </div>
       </section>
     </div>
   )
