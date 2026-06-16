@@ -74,7 +74,7 @@ export default function ShopPage() {
               border:     '1px solid var(--bd)',
             }}
           >
-            {c === 'all' ? 'All' : cap(c) + 's'}
+            {c === 'all' ? 'All' : c === 'earrings' ? 'Earrings' : c === 'set' ? 'Sets' : cap(c) + 's'}
           </button>
         ))}
       </div>

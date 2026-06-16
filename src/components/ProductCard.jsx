@@ -51,24 +51,25 @@ export default function ProductCard({ product, onAdded }) {
       </div>
 
       {/* Body */}
-      <div className="p-4">
+      <div className="p-3 sm:p-4">
         <p className="section-eyebrow text-xs mb-1">{cap(product.category)}</p>
         <h3 className="font-serif text-lg font-semibold leading-snug mb-1" style={{ color: 'var(--tx)' }}>
           {product.name}
         </h3>
         {product.description && (
-          <p className="text-xs leading-relaxed mb-3" style={{ color: 'var(--tx2)' }}>
+          <p className="text-xs leading-relaxed mb-2 hidden sm:block" style={{ color: 'var(--tx2)' }}>
             {product.description.length > 80
               ? product.description.slice(0, 80) + '…'
               : product.description}
           </p>
         )}
-        <div className="flex items-center justify-between">
-          <span className="font-serif text-xl font-bold" style={{ color: 'var(--tx)' }}>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <span className="font-serif text-lg font-bold flex-shrink-0" style={{ color: 'var(--tx)' }}>
             {fmt(product.price)}
           </span>
           <button
-            className="btn-gold text-xs px-4 py-2"
+            className="btn-gold text-xs px-3 py-2 flex-shrink-0"
+            style={{ fontSize: 11 }}
             onClick={handleAdd}
             disabled={!product.available}
           >
