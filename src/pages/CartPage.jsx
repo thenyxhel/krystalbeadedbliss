@@ -33,7 +33,7 @@ export default function CartPage() {
             {/* Image */}
             <div
               className="flex-shrink-0 rounded-xl overflow-hidden flex items-center justify-center"
-              style={{ width: 72, height: 72, background: 'var(--surf2)' }}
+              style={{ width: 60, height: 60, background: 'var(--surf2)', flexShrink: 0 }}
             >
               {item.images?.[0]
                 ? <img src={item.images[0]} alt={item.name} className="w-full h-full object-cover" />
@@ -41,44 +41,45 @@ export default function CartPage() {
               }
             </div>
 
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold truncate" style={{ color: 'var(--tx)' }}>{item.name}</p>
-              <p className="text-xs capitalize" style={{ color: 'var(--tx2)' }}>{item.category}</p>
-              <p className="font-serif text-base font-bold mt-0.5" style={{ color: 'var(--tx)' }}>{fmt(item.price)}</p>
-            </div>
-
-            {/* Qty */}
-            <div className="flex items-center rounded-xl overflow-hidden" style={{ border: '1px solid var(--bd)' }}>
-              <button
-                onClick={() => updateQty(item.id, item.qty - 1)}
-                className="px-3 py-2 text-sm font-bold"
-                style={{ background: 'var(--surf2)', color: 'var(--tx)', border: 'none' }}
-              >−</button>
-              <span className="px-4 py-2 text-sm font-semibold" style={{ color: 'var(--tx)', background: 'var(--surf)' }}>
-                {item.qty}
-              </span>
-              <button
-                onClick={() => updateQty(item.id, item.qty + 1)}
-                className="px-3 py-2 text-sm font-bold"
-                style={{ background: 'var(--surf2)', color: 'var(--tx)', border: 'none' }}
-              >+</button>
-            </div>
-
-            {/* Subtotal + remove */}
-            <div className="text-right flex-shrink-0">
-              <p className="font-serif text-base font-bold" style={{ color: 'var(--tx)' }}>
-                {fmt(item.price * item.qty)}
-              </p>
-              <button
-                onClick={() => remove(item.id)}
-                className="text-xs mt-1 transition-colors"
-                style={{ background: 'none', border: 'none', color: 'var(--tx2)' }}
-                onMouseEnter={e => e.target.style.color = 'var(--pink)'}
-                onMouseLeave={e => e.target.style.color = 'var(--tx2)'}
-              >
-                Remove
-              </button>
+            {/* Info + controls */}
+            <div className="flex-1 min-w-0 flex flex-col gap-2">
+              <div>
+                <p className="text-sm font-semibold" style={{ color: 'var(--tx)' }}>{item.name}</p>
+                <p className="text-xs capitalize" style={{ color: 'var(--tx2)' }}>{item.category}</p>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                {/* Qty */}
+                <div className="flex items-center rounded-xl overflow-hidden" style={{ border: '1px solid var(--bd)' }}>
+                  <button
+                    onClick={() => updateQty(item.id, item.qty - 1)}
+                    className="px-3 py-2 text-sm font-bold"
+                    style={{ background: 'var(--surf2)', color: 'var(--tx)', border: 'none' }}
+                  >−</button>
+                  <span className="px-3 py-2 text-sm font-semibold" style={{ color: 'var(--tx)', background: 'var(--surf)' }}>
+                    {item.qty}
+                  </span>
+                  <button
+                    onClick={() => updateQty(item.id, item.qty + 1)}
+                    className="px-3 py-2 text-sm font-bold"
+                    style={{ background: 'var(--surf2)', color: 'var(--tx)', border: 'none' }}
+                  >+</button>
+                </div>
+                {/* Subtotal + remove */}
+                <div className="text-right">
+                  <p className="font-serif text-base font-bold" style={{ color: 'var(--tx)' }}>
+                    {fmt(item.price * item.qty)}
+                  </p>
+                  <button
+                    onClick={() => remove(item.id)}
+                    className="text-xs transition-colors"
+                    style={{ background: 'none', border: 'none', color: 'var(--tx2)' }}
+                    onMouseEnter={e => e.target.style.color = 'var(--pink)'}
+                    onMouseLeave={e => e.target.style.color = 'var(--tx2)'}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         ))}
