@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { ADMIN_BASE } from '../../lib/adminPath'
 
 export default function AdminLogin() {
   const nav = useNavigate()
@@ -14,7 +15,7 @@ export default function AdminLogin() {
     setLoading(true); setError('')
     const { error: err } = await supabase.auth.signInWithPassword({ email, password })
     if (err) { setError(err.message); setLoading(false) }
-    else nav('/admin')
+    else nav(ADMIN_BASE)
   }
 
   return (
@@ -23,7 +24,6 @@ export default function AdminLogin() {
       style={{ background: 'var(--bg)' }}
     >
       <div className="w-full max-w-sm">
-        {/* Logo */}
         <div className="text-center mb-8">
           <div
             className="inline-flex items-center justify-center rounded-full mb-4"

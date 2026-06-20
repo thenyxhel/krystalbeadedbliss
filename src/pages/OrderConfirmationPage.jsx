@@ -2,9 +2,11 @@ import { useLocation, Link } from 'react-router-dom'
 import { whatsappLink } from '../lib/config'
 import { fmt } from '../lib/utils'
 import BeadDivider from '../components/BeadDivider'
+import { useToast, ToastContainer } from '../components/Toast'
 
 export default function OrderConfirmationPage() {
   const { state } = useLocation()
+  const { toasts, toast } = useToast()
 
   if (!state?.orderNumber) {
     return (
@@ -21,8 +23,15 @@ export default function OrderConfirmationPage() {
     ? `Hi! I just placed a custom order — Order #${orderNumber}. Piece: ${summary?.pieceType}, Bead: ${summary?.beadType}, Colour: ${summary?.color}. Please confirm.`
     : `Hi! I just placed order #${orderNumber} for ${fmt(total)}. Please confirm receipt.`
 
+  const copyOrderNumber = () => {
+    navigator.clipboard.writeText(orderNumber)
+    toast('Order number copied!')
+  }
+
   return (
     <div className="max-w-2xl mx-auto px-6 pb-24 text-center">
+      <ToastContainer toasts={toasts} />
+
       <div className="pt-8 pb-6">
         <div className="text-5xl mb-4">🎉</div>
         <p className="section-eyebrow mb-2">Order placed</p>
@@ -41,7 +50,19 @@ export default function OrderConfirmationPage() {
       {/* Order number */}
       <div className="card p-6 mb-6">
         <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--tx2)' }}>Your order number</p>
-        <p className="font-serif text-3xl font-bold" style={{ color: 'var(--gold)' }}>{orderNumber}</p>
+        <div className="flex items-center justify-center gap-2">
+          <p className="font-serif text-3xl font-bold" style={{ color: 'var(--gold)' }}>{orderNumber}</p>
+          <button
+            onClick={copyOrderNumber}
+            title="Copy order number"
+            style={{ background: 'var(--surf2)', border: '1px solid var(--bd)', borderRadius: 8, padding: 6, color: 'var(--tx)' }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="9" y="9" width="13" height="13" rx="2"/>
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+            </svg>
+          </button>
+        </div>
         <p className="text-xs mt-2" style={{ color: 'var(--tx2)' }}>Keep this safe — you'll need it to track your order.</p>
 
         {isCustom && estimatedPrice && (

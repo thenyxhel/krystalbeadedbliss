@@ -1,12 +1,14 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { ADMIN_BASE } from '../../lib/adminPath'
 
 const NAV = [
-  { to: '/admin',            label: 'Dashboard',    icon: '◈', end: true },
-  { to: '/admin/products',   label: 'Products',     icon: '◎' },
-  { to: '/admin/orders',     label: 'Orders',       icon: '◷' },
-  { to: '/admin/complaints', label: 'Complaints',   icon: '◌' },
-  { to: '/admin/custom',     label: 'Builder Config', icon: '◉' },
+  { to: ADMIN_BASE,                  label: 'Dashboard',     icon: '◈', end: true },
+  { to: `${ADMIN_BASE}/products`,    label: 'Products',      icon: '◎' },
+  { to: `${ADMIN_BASE}/orders`,      label: 'Orders',        icon: '◷' },
+  { to: `${ADMIN_BASE}/reviews`,     label: 'Reviews',       icon: '★' },
+  { to: `${ADMIN_BASE}/complaints`,  label: 'Complaints',    icon: '◌' },
+  { to: `${ADMIN_BASE}/custom`,      label: 'Builder Config', icon: '◉' },
 ]
 
 export default function AdminLayout() {
@@ -14,7 +16,7 @@ export default function AdminLayout() {
 
   const logout = async () => {
     await supabase.auth.signOut()
-    nav('/admin/login')
+    nav('/')   // back to the public site, not the admin login
   }
 
   return (
@@ -28,24 +30,18 @@ export default function AdminLayout() {
           position: 'sticky', top: 0, height: '100vh',
         }}
       >
-        {/* Brand */}
         <div className="px-5 py-6" style={{ borderBottom: '1px solid var(--bd)' }}>
           <p className="font-serif text-base font-semibold" style={{ color: 'var(--tx)' }}>Krystal's</p>
           <p className="text-xs tracking-widest uppercase" style={{ color: 'var(--gold)', fontSize: 9 }}>Admin Panel</p>
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
           {NAV.map(n => (
             <NavLink
               key={n.to}
               to={n.to}
               end={n.end}
-              className={({ isActive }) =>
-                `flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all no-underline ${
-                  isActive ? 'active-nav' : ''
-                }`
-              }
+              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all no-underline"
               style={({ isActive }) => ({
                 background: isActive ? 'var(--goldl)' : 'transparent',
                 color: isActive ? 'var(--gold)' : 'var(--tx2)',
@@ -57,7 +53,6 @@ export default function AdminLayout() {
           ))}
         </nav>
 
-        {/* Logout */}
         <div className="px-3 pb-5">
           <button
             onClick={logout}
@@ -101,7 +96,6 @@ export default function AdminLayout() {
         </button>
       </div>
 
-      {/* Main content */}
       <main className="flex-1 min-w-0 p-6 md:p-8 mt-14 md:mt-0">
         <Outlet />
       </main>

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { fmt, cap } from '../lib/utils'
+import { cap } from '../lib/utils'
 import { Link } from 'react-router-dom'
+import { useToast, ToastContainer } from '../components/Toast'
 
 const STATUS_STEPS = ['pending', 'confirmed', 'processing', 'shipped', 'delivered']
 
@@ -15,32 +16,38 @@ const STATUS_LABELS = {
 }
 
 export default function TrackOrderPage() {
+  const { toasts, toast } = useToast()
   const [input, setInput]   = useState('')
   const [order, setOrder]   = useState(null)
   const [loading, setLoad]  = useState(false)
   const [notFound, setNF]   = useState(false)
 
   const search = async () => {
-    const q = input.trim().toUpperCase()
+    const q = input.trim()
     if (!q) return
     setLoad(true); setOrder(null); setNF(false)
 
-    // Check both orders and custom_orders
-    const [{ data: reg }, { data: custom }] = await Promise.all([
-      supabase.from('orders').select('*').eq('order_number', q).single(),
-      supabase.from('custom_orders').select('*').eq('order_number', q).single(),
-    ])
+    const { data, error } = await supabase.rpc('track_order', { p_order_number: q })
 
-    const found = reg || custom
-    if (found) setOrder({ ...found, isCustom: !!custom })
-    else setNF(true)
+    if (error || !data || data.length === 0) {
+      setNF(true)
+    } else {
+      setOrder(data[0])
+    }
     setLoad(false)
+  }
+
+  const copyOrderNumber = () => {
+    navigator.clipboard.writeText(order.order_number)
+    toast('Order number copied!')
   }
 
   const stepIndex = order ? STATUS_STEPS.indexOf(order.status) : -1
 
   return (
     <div className="max-w-2xl mx-auto px-6 pb-24">
+      <ToastContainer toasts={toasts} />
+
       <div className="pt-4 pb-8">
         <p className="section-eyebrow">Where's my order?</p>
         <h1 className="section-title">Track Order</h1>
@@ -75,8 +82,7 @@ export default function TrackOrderPage() {
         <div className="card p-6 text-center">
           <p className="font-serif text-xl mb-1" style={{ color: 'var(--tx)' }}>Order not found</p>
           <p className="text-sm" style={{ color: 'var(--tx2)' }}>
-            Double-check the number or{' '}
-            <a href="#" style={{ color: 'var(--gold)', textDecoration: 'none' }}>contact us on WhatsApp</a>.
+            Double-check the number or contact us on WhatsApp.
           </p>
         </div>
       )}
@@ -87,11 +93,23 @@ export default function TrackOrderPage() {
           <div className="flex items-start justify-between mb-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--tx2)' }}>
-                {order.isCustom ? 'Custom Order' : 'Order'}
+                {order.is_custom ? 'Custom Order' : 'Order'}
               </p>
-              <p className="font-serif text-2xl font-bold" style={{ color: 'var(--gold)' }}>
-                {order.order_number}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="font-serif text-2xl font-bold" style={{ color: 'var(--gold)' }}>
+                  {order.order_number}
+                </p>
+                <button
+                  onClick={copyOrderNumber}
+                  title="Copy order number"
+                  style={{ background: 'none', border: 'none', color: 'var(--tx2)', padding: 4 }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2"/>
+                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                  </svg>
+                </button>
+              </div>
             </div>
             <span
               className="text-xs font-bold px-3 py-1.5 rounded-full text-white capitalize"
@@ -105,7 +123,6 @@ export default function TrackOrderPage() {
           {order.status !== 'cancelled' && (
             <div className="mb-6">
               <div className="flex items-center justify-between relative">
-                {/* Line */}
                 <div
                   className="absolute top-3.5 left-0 right-0 h-px"
                   style={{ background: 'var(--bd)', zIndex: 0 }}
@@ -118,7 +135,6 @@ export default function TrackOrderPage() {
                     zIndex: 1,
                   }}
                 />
-
                 {STATUS_STEPS.map((s, i) => (
                   <div key={s} className="flex flex-col items-center gap-1.5 relative z-10">
                     <div
@@ -157,16 +173,16 @@ export default function TrackOrderPage() {
               <span>Customer</span>
               <span className="font-semibold" style={{ color: 'var(--tx)' }}>{order.customer_name}</span>
             </div>
-            {order.total && (
+            {order.total != null && (
               <div className="flex justify-between py-2" style={{ borderBottom: '1px solid var(--bd)' }}>
                 <span>Total</span>
-                <span className="font-semibold" style={{ color: 'var(--tx)' }}>{fmt(order.total)}</span>
+                <span className="font-semibold" style={{ color: 'var(--tx)' }}>₦{Number(order.total).toLocaleString('en-NG')}</span>
               </div>
             )}
-            {order.estimated_price && (
+            {order.estimated_price != null && (
               <div className="flex justify-between py-2" style={{ borderBottom: '1px solid var(--bd)' }}>
                 <span>Estimated Price</span>
-                <span className="font-semibold" style={{ color: 'var(--tx)' }}>{fmt(order.estimated_price)}</span>
+                <span className="font-semibold" style={{ color: 'var(--tx)' }}>₦{Number(order.estimated_price).toLocaleString('en-NG')}</span>
               </div>
             )}
             <div className="flex justify-between py-2">

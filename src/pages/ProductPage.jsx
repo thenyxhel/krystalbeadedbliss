@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useCart } from '../context/CartContext'
 import { fmt, cap } from '../lib/utils'
 import { useToast, ToastContainer } from '../components/Toast'
+import ReviewSection from '../components/ReviewSection'
 
 export default function ProductPage() {
   const { id } = useParams()
@@ -160,6 +161,8 @@ export default function ProductPage() {
           </p>
         </div>
       </div>
+
+      <ReviewSection productId={product.id} />
     </div>
   )
 }

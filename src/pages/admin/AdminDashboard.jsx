@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { fmt } from '../../lib/utils'
+import { ADMIN_BASE } from '../../lib/adminPath'
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null)
@@ -33,10 +34,10 @@ export default function AdminDashboard() {
   }, [])
 
   const CARDS = stats ? [
-    { label: 'Total Orders',       value: stats.totalOrders,    sub: 'all time',       link: '/admin/orders' },
-    { label: 'Pending Orders',     value: stats.pendingOrders,  sub: 'need attention', link: '/admin/orders' },
-    { label: 'Custom Orders',      value: stats.pendingCustom,  sub: 'pending',        link: '/admin/orders' },
-    { label: 'Open Complaints',    value: stats.openComplaints, sub: 'unresolved',     link: '/admin/complaints' },
+    { label: 'Total Orders',       value: stats.totalOrders,    sub: 'all time',       link: `${ADMIN_BASE}/orders` },
+    { label: 'Pending Orders',     value: stats.pendingOrders,  sub: 'need attention', link: `${ADMIN_BASE}/orders` },
+    { label: 'Custom Orders',      value: stats.pendingCustom,  sub: 'pending',        link: `${ADMIN_BASE}/orders` },
+    { label: 'Open Complaints',    value: stats.openComplaints, sub: 'unresolved',     link: `${ADMIN_BASE}/complaints` },
     { label: 'Total Revenue',      value: fmt(stats.revenue),   sub: 'from orders',    link: null },
   ] : []
 

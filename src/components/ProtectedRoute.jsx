@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { ADMIN_BASE } from '../lib/adminPath'
 
 export default function ProtectedRoute({ children }) {
   const [state, setState] = useState('loading') // 'loading' | 'auth' | 'unauth'
@@ -25,5 +26,5 @@ export default function ProtectedRoute({ children }) {
     )
   }
 
-  return state === 'auth' ? children : <Navigate to="/admin/login" replace />
+  return state === 'auth' ? children : <Navigate to={`${ADMIN_BASE}/login`} replace />
 }

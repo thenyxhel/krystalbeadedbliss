@@ -3,6 +3,7 @@ import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import ProtectedRoute from './components/ProtectedRoute'
 import ScrollToTop from './components/ScrollToTop'
+import { ADMIN_BASE } from './lib/adminPath'
 
 import HomePage              from './pages/HomePage'
 import ShopPage              from './pages/ShopPage'
@@ -16,11 +17,13 @@ import ComplaintPage         from './pages/ComplaintPage'
 
 import AdminLogin        from './pages/admin/AdminLogin'
 import AdminLayout       from './pages/admin/AdminLayout'
-import AdminDashboard    from './pages/admin/AdminDashboard'
+import AdminDashboard     from './pages/admin/AdminDashboard'
 import AdminProducts     from './pages/admin/AdminProducts'
 import AdminOrders       from './pages/admin/AdminOrders'
 import AdminComplaints   from './pages/admin/AdminComplaints'
 import AdminCustomConfig from './pages/admin/AdminCustomConfig'
+import AdminReviews      from './pages/admin/AdminReviews'
+
 
 function MainLayout({ children }) {
   return (
@@ -47,13 +50,15 @@ export default function App() {
         <Route path="/track" element={<MainLayout><TrackOrderPage /></MainLayout>} />
         <Route path="/complaint" element={<MainLayout><ComplaintPage /></MainLayout>} />
 
-        <Route path="/admin/login" element={<AdminLogin />} />
-        <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
+        {/* 🔒 Admin — secret path, not linked from the public site */}
+        <Route path={`${ADMIN_BASE}/login`} element={<AdminLogin />} />
+        <Route path={ADMIN_BASE} element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
           <Route index element={<AdminDashboard />} />
           <Route path="products"   element={<AdminProducts />} />
           <Route path="orders"     element={<AdminOrders />} />
           <Route path="complaints" element={<AdminComplaints />} />
           <Route path="custom"     element={<AdminCustomConfig />} />
+          <Route path="reviews"    element={<AdminReviews />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

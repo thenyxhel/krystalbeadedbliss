@@ -88,19 +88,10 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-6" style={{ borderTop: '1px solid var(--bd)' }}>
+        <div className="flex items-center justify-center pt-6" style={{ borderTop: '1px solid var(--bd)' }}>
           <p className="text-xs" style={{ color: 'var(--tx2)' }}>
             © {new Date().getFullYear()} Krystal's Beaded Bliss. All rights reserved.
           </p>
-          <Link
-            to="/admin"
-            className="text-xs transition-colors"
-            style={{ color: 'var(--bd)', textDecoration: 'none' }}
-            onMouseEnter={e => e.target.style.color = 'var(--tx2)'}
-            onMouseLeave={e => e.target.style.color = 'var(--bd)'}
-          >
-            Admin
-          </Link>
         </div>
       </div>
     </footer>
