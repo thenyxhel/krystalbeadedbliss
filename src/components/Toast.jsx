@@ -19,7 +19,7 @@ export function ToastContainer({ toasts }) {
         <div
           key={t.id}
           className="animate-fade-up px-5 py-3 rounded-xl text-sm font-medium text-white shadow-lg"
-          style={{ background: t.type === 'error' ? 'var(--pink)' : 'var(--gold)' }}
+          style={{ background: t.type === 'error' ? 'var(--pink)' : 'var(--purple)' }}
         >
           {t.msg}
         </div>

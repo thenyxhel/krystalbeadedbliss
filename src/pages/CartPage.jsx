@@ -11,7 +11,7 @@ export default function CartPage() {
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 px-6">
         <p className="font-serif text-3xl" style={{ color: 'var(--tx)' }}>Your cart is empty</p>
         <p className="text-sm" style={{ color: 'var(--tx2)' }}>Add some pieces and come back.</p>
-        <Link to="/shop" className="btn-gold mt-2">Browse Shop</Link>
+        <Link to="/shop" className="btn-primary mt-2">Browse Shop</Link>
       </div>
     )
   }
@@ -99,7 +99,7 @@ export default function CartPage() {
           <span className="font-semibold" style={{ color: 'var(--tx)' }}>Total</span>
           <span className="font-serif text-xl font-bold" style={{ color: 'var(--tx)' }}>{fmt(total)}</span>
         </div>
-        <button className="btn-gold w-full" onClick={() => nav('/checkout')}>
+        <button className="btn-primary w-full" onClick={() => nav('/checkout')}>
           Proceed to Checkout
         </button>
         <Link to="/shop" className="btn-outline w-full mt-2 text-center no-underline block">

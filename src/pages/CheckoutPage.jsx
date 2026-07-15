@@ -24,7 +24,7 @@ export default function CheckoutPage() {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
         <p className="font-serif text-2xl" style={{ color: 'var(--tx)' }}>Your cart is empty</p>
-        <Link to="/shop" className="btn-gold">Browse Shop</Link>
+        <Link to="/shop" className="btn-primary">Browse Shop</Link>
       </div>
     )
   }
@@ -118,7 +118,7 @@ export default function CheckoutPage() {
               </div>
 
               <button
-                className="btn-gold w-full mt-6"
+                className="btn-primary w-full mt-6"
                 disabled={!detailsValid}
                 onClick={() => setStep(1)}
                 style={{ opacity: detailsValid ? 1 : 0.45 }}
@@ -186,7 +186,7 @@ export default function CheckoutPage() {
               {error && <p className="text-sm mt-3" style={{ color: 'var(--pink)' }}>{error}</p>}
 
               <button
-                className="btn-gold w-full mt-5"
+                className="btn-primary w-full mt-5"
                 onClick={handleSubmit}
                 disabled={submitting || !receiptFile}
                 style={{ opacity: submitting || !receiptFile ? 0.5 : 1 }}

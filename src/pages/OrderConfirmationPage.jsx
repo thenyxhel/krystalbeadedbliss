@@ -12,7 +12,7 @@ export default function OrderConfirmationPage() {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
         <p className="font-serif text-2xl" style={{ color: 'var(--tx)' }}>No order found</p>
-        <Link to="/" className="btn-gold">Go Home</Link>
+        <Link to="/" className="btn-primary">Go Home</Link>
       </div>
     )
   }
@@ -80,7 +80,7 @@ export default function OrderConfirmationPage() {
       </div>
 
       <div className="flex flex-col gap-3">
-        <a href={whatsappLink(waMessage)} target="_blank" rel="noreferrer" className="btn-gold w-full">
+        <a href={whatsappLink(waMessage)} target="_blank" rel="noreferrer" className="btn-primary w-full">
           Contact us on WhatsApp
         </a>
         <Link to="/track" className="btn-outline w-full">

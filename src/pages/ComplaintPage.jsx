@@ -93,7 +93,7 @@ export default function ComplaintPage() {
         {error && <p className="text-sm" style={{ color: 'var(--pink)' }}>{error}</p>}
 
         <button
-          className="btn-gold w-full"
+          className="btn-primary w-full"
           disabled={!valid || submitting}
           onClick={handleSubmit}
           style={{ opacity: valid && !submitting ? 1 : 0.45 }}

@@ -69,7 +69,7 @@ export default function ShopPage() {
             onClick={() => setCategory(c)}
             className="px-4 py-2 rounded-full text-xs font-semibold transition-all"
             style={{
-              background: category === c ? 'var(--gold)' : 'var(--surf)',
+              background: category === c ? 'var(--purple)' : 'var(--surf)',
               color:      category === c ? 'white'       : 'var(--tx2)',
               border:     '1px solid var(--bd)',
             }}

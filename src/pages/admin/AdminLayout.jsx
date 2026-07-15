@@ -31,8 +31,8 @@ export default function AdminLayout() {
         }}
       >
         <div className="px-5 py-6" style={{ borderBottom: '1px solid var(--bd)' }}>
-          <p className="font-serif text-base font-semibold" style={{ color: 'var(--tx)' }}>Krystal's</p>
-          <p className="text-xs tracking-widest uppercase" style={{ color: 'var(--gold)', fontSize: 9 }}>Admin Panel</p>
+          <p className="font-serif text-base font-semibold" style={{ color: 'var(--tx)' }}>Krystal</p>
+          <p className="text-xs tracking-widest uppercase" style={{ color: 'var(--lavender)', fontSize: 9 }}>Admin Panel</p>
         </div>
 
         <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
@@ -43,8 +43,8 @@ export default function AdminLayout() {
               end={n.end}
               className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all no-underline"
               style={({ isActive }) => ({
-                background: isActive ? 'var(--goldl)' : 'transparent',
-                color: isActive ? 'var(--gold)' : 'var(--tx2)',
+                background: isActive ? 'rgba(45,27,105,0.08)' : 'transparent',
+                color: isActive ? 'var(--purple)' : 'var(--tx2)',
               })}
             >
               <span style={{ fontSize: 16 }}>{n.icon}</span>
@@ -80,8 +80,8 @@ export default function AdminLayout() {
               end={n.end}
               className="text-xs px-2 py-1 rounded-lg no-underline whitespace-nowrap"
               style={({ isActive }) => ({
-                background: isActive ? 'var(--goldl)' : 'transparent',
-                color: isActive ? 'var(--gold)' : 'var(--tx2)',
+                background: isActive ? 'rgba(45,27,105,0.08)' : 'transparent',
+                color: isActive ? 'var(--purple)' : 'var(--tx2)',
               })}
             >
               {n.label}

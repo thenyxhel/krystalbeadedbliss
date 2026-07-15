@@ -2,7 +2,7 @@ import { useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ADMIN_BASE } from '../lib/adminPath'
 
-const HOLD_MS = 1200 // hold time to trigger
+const HOLD_MS = 1200
 
 function SecretBead({ size, color, opacity }) {
   const nav = useNavigate()
@@ -22,8 +22,6 @@ function SecretBead({ size, color, opacity }) {
     }, HOLD_MS)
   }
 
-  // Listen on the whole window for release — so a little finger/mouse
-  // drift off the tiny dot doesn't cancel the hold early.
   useEffect(() => {
     const onUp = () => clearHold()
     window.addEventListener('mouseup', onUp)
@@ -42,11 +40,9 @@ function SecretBead({ size, color, opacity }) {
       onTouchStart={startHold}
       onContextMenu={(e) => e.preventDefault()}
       style={{
-        // Real hit area is much bigger than the visible dot —
-        // the dot itself stays tiny and unchanged visually.
         width: 28, height: 28,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        margin: '0 -7px', // compensate so layout spacing matches the other beads
+        margin: '0 -7px',
         flexShrink: 0,
         WebkitTouchCallout: 'none',
         userSelect: 'none',
@@ -58,14 +54,15 @@ function SecretBead({ size, color, opacity }) {
   )
 }
 
+// Updated to purple/lavender palette
 const BEADS = [
-  { size: 8,  color: 'var(--pink)',  opacity: 0.65 },
-  { size: 10, color: 'var(--gold)',  opacity: 0.85 },
-  { size: 8,  color: 'var(--tx)',    opacity: 0.3, secret: true }, // 🔒 long-press → admin
-  { size: 12, color: 'var(--gold)',  opacity: 1    },
-  { size: 8,  color: 'var(--pink)',  opacity: 0.65 },
-  { size: 10, color: 'var(--tx)',    opacity: 0.3  },
-  { size: 8,  color: 'var(--gold)',  opacity: 0.75 },
+  { size: 8,  color: 'var(--pink)',     opacity: 0.65 },
+  { size: 10, color: 'var(--gold)',     opacity: 0.85 },
+  { size: 8,  color: 'var(--lavender)', opacity: 0.4, secret: true }, // 🔒 long-press → admin
+  { size: 12, color: 'var(--purple)',   opacity: 0.85 },
+  { size: 8,  color: 'var(--pink)',     opacity: 0.65 },
+  { size: 10, color: 'var(--lavender)', opacity: 0.5 },
+  { size: 8,  color: 'var(--gold)',     opacity: 0.75 },
 ]
 
 export default function BeadDivider({ className = '' }) {

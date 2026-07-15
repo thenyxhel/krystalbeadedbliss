@@ -289,7 +289,7 @@ export default function CustomBuilderPage() {
         )}
         {step < STEPS.length - 1 ? (
           <button
-            className="btn-gold flex-1"
+            className="btn-primary flex-1"
             disabled={!canNext()}
             onClick={() => setStep(s => s + 1)}
             style={{ opacity: canNext() ? 1 : 0.45 }}
@@ -298,7 +298,7 @@ export default function CustomBuilderPage() {
           </button>
         ) : (
           <button
-            className="btn-gold flex-1"
+            className="btn-primary flex-1"
             disabled={!canNext() || submitting}
             onClick={handleSubmit}
           >

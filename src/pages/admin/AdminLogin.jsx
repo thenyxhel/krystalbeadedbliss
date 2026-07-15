@@ -29,8 +29,8 @@ export default function AdminLogin() {
             className="inline-flex items-center justify-center rounded-full mb-4"
             style={{
               width: 52, height: 52,
-              background: 'linear-gradient(135deg, var(--gold), var(--gold2))',
-              border: '2px solid var(--gold2)',
+              background: 'linear-gradient(135deg, var(--purple), var(--purple2))',
+              border: '2px solid var(--gold)',
             }}
           >
             <svg width="22" height="22" viewBox="0 0 20 20">
@@ -44,7 +44,7 @@ export default function AdminLogin() {
           <h1 className="font-serif text-2xl font-semibold" style={{ color: 'var(--tx)' }}>
             Admin Panel
           </h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--tx2)' }}>Krystal's Beaded Bliss</p>
+          <p className="text-sm mt-1" style={{ color: 'var(--tx2)' }}>Krystal Beaded Bliss</p>
         </div>
 
         <form onSubmit={handleLogin} className="card p-6 flex flex-col gap-4">
@@ -77,7 +77,7 @@ export default function AdminLogin() {
 
           <button
             type="submit"
-            className="btn-gold w-full mt-1"
+            className="btn-primary w-full mt-1"
             disabled={loading}
           >
             {loading ? 'Signing in…' : 'Sign In'}

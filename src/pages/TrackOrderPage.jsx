@@ -65,7 +65,7 @@ export default function TrackOrderPage() {
             onKeyDown={e => e.key === 'Enter' && search()}
           />
           <button
-            className="btn-gold px-5 flex-shrink-0"
+            className="btn-primary px-5 flex-shrink-0"
             onClick={search}
             disabled={loading || !input.trim()}
           >
