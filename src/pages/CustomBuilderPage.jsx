@@ -22,7 +22,7 @@ export default function CustomBuilderPage() {
 
   const [form, setForm] = useState({
     pieceType: '',
-    beadType:  '',
+    beadTypes: [],   // multi-select
     color:     '',
     charms:    [],
     qty:       1,
@@ -39,6 +39,15 @@ export default function CustomBuilderPage() {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
+  const toggleBeadType = (b) => {
+    setForm(f => ({
+      ...f,
+      beadTypes: f.beadTypes.includes(b)
+        ? f.beadTypes.filter(x => x !== b)
+        : [...f.beadTypes, b],
+    }))
+  }
+
   const toggleCharm = (c) => {
     setForm(f => ({
       ...f,
@@ -49,7 +58,9 @@ export default function CustomBuilderPage() {
   const estimatedPrice = () => {
     if (!config || !form.pieceType) return 0
     const base = config.base_prices?.[form.pieceType] || 0
-    const beadExtra = config.bead_types?.find(b => b.name === form.beadType)?.price_modifier || 0
+    const beadExtra = form.beadTypes.reduce((s, name) => {
+      return s + (config.bead_types?.find(b => b.name === name)?.price_modifier || 0)
+    }, 0)
     const charmExtra = form.charms.reduce((s, c) => {
       return s + (config.charm_types?.find(x => x.name === c)?.price || 0)
     }, 0)
@@ -58,7 +69,7 @@ export default function CustomBuilderPage() {
 
   const canNext = () => {
     if (step === 0) return !!form.pieceType
-    if (step === 1) return !!form.beadType
+    if (step === 1) return form.beadTypes.length > 0
     if (step === 2) return !!form.color
     if (step === 3) return true // charms optional
     if (step === 4) return form.name && form.email && form.phone
@@ -76,7 +87,7 @@ export default function CustomBuilderPage() {
       phone:           form.phone,
       piece_type:      form.pieceType,
       configuration:   {
-        bead_type: form.beadType,
+        bead_types: form.beadTypes,
         color:     form.color,
         charms:    form.charms,
         quantity:  form.qty,
@@ -120,14 +131,14 @@ export default function CustomBuilderPage() {
               className="flex items-center justify-center text-xs font-bold rounded-full flex-shrink-0"
               style={{
                 width: 28, height: 28,
-                background: i <= step ? 'var(--gold)' : 'var(--surf2)',
+                background: i <= step ? 'var(--purple)' : 'var(--surf2)',
                 color: i <= step ? 'white' : 'var(--tx2)',
               }}
             >
               {i < step ? '✓' : i + 1}
             </div>
             {i < STEPS.length - 1 && (
-              <div className="flex-1 h-px" style={{ background: i < step ? 'var(--gold)' : 'var(--bd)' }} />
+              <div className="flex-1 h-px" style={{ background: i < step ? 'var(--purple)' : 'var(--bd)' }} />
             )}
           </div>
         ))}
@@ -158,28 +169,58 @@ export default function CustomBuilderPage() {
           </div>
         )}
 
-        {/* Step 1: Bead type */}
+        {/* Step 1: Bead types — multi-select */}
         {step === 1 && (
-          <div className="flex flex-col gap-2">
-            {(config?.bead_types || []).map(b => (
-              <button
-                key={b.name}
-                onClick={() => set('beadType', b.name)}
-                className="flex items-center justify-between p-4 rounded-xl text-left transition-all"
-                style={{
-                  background: form.beadType === b.name ? 'var(--goldl)' : 'var(--surf2)',
-                  border: `2px solid ${form.beadType === b.name ? 'var(--gold)' : 'transparent'}`,
-                }}
-              >
-                <div>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--tx)' }}>{b.name}</p>
-                  {b.description && <p className="text-xs" style={{ color: 'var(--tx2)' }}>{b.description}</p>}
-                </div>
-                {b.price_modifier > 0 && (
-                  <span className="text-xs font-bold" style={{ color: 'var(--gold)' }}>+{fmt(b.price_modifier)}</span>
-                )}
-              </button>
-            ))}
+          <div>
+            <p className="text-sm mb-4" style={{ color: 'var(--tx2)' }}>
+              Pick as many as you like — we'll mix them together.
+            </p>
+            <div className="flex flex-col gap-2">
+              {(config?.bead_types || []).map(b => {
+                const selected = form.beadTypes.includes(b.name)
+                return (
+                  <button
+                    key={b.name}
+                    onClick={() => toggleBeadType(b.name)}
+                    className="flex items-center justify-between p-4 rounded-xl text-left transition-all"
+                    style={{
+                      background: selected ? 'rgba(45,27,105,0.08)' : 'var(--surf2)',
+                      border: `2px solid ${selected ? 'var(--purple)' : 'transparent'}`,
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div style={{
+                        width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+                        background: selected ? 'var(--purple)' : 'var(--surf)',
+                        border: `2px solid ${selected ? 'var(--purple)' : 'var(--bd)'}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 0.15s',
+                      }}>
+                        {selected && (
+                          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                            <path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold" style={{ color: 'var(--tx)' }}>{b.name}</p>
+                        {b.description && <p className="text-xs" style={{ color: 'var(--tx2)' }}>{b.description}</p>}
+                      </div>
+                    </div>
+                    {b.price_modifier > 0 && (
+                      <span className="text-xs font-bold flex-shrink-0" style={{ color: 'var(--lavender)' }}>
+                        +{fmt(b.price_modifier)}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+            {form.beadTypes.length > 0 && (
+              <p className="text-xs mt-3 font-medium" style={{ color: 'var(--lavender)' }}>
+                ✓ {form.beadTypes.length} type{form.beadTypes.length > 1 ? 's' : ''} selected: {form.beadTypes.join(', ')}
+              </p>
+            )}
           </div>
         )}
 
@@ -261,7 +302,7 @@ export default function CustomBuilderPage() {
             {/* Estimated price */}
             <div className="rounded-xl p-4 mb-2" style={{ background: 'var(--surf2)' }}>
               <p className="text-xs font-semibold mb-1" style={{ color: 'var(--tx2)' }}>Estimated price</p>
-              <p className="font-serif text-2xl font-bold" style={{ color: 'var(--gold)' }}>{fmt(estimatedPrice())}</p>
+              <p className="font-serif text-2xl font-bold" style={{ color: 'var(--purple)' }}>{fmt(estimatedPrice())}</p>
               <p className="text-xs mt-1" style={{ color: 'var(--tx2)' }}>Final price confirmed via WhatsApp before payment.</p>
             </div>
 
