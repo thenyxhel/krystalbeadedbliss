@@ -73,6 +73,30 @@ export default function AdminOrders() {
     }
   }, [selected])
 
+  /**
+   * Deleting an order is genuinely destructive: it is a financial record, and
+   * once it is gone the revenue figures on the dashboard change to match.
+   * Cancelling is almost always the right move instead — it keeps the history
+   * and takes the order out of the revenue totals either way.
+   *
+   * This exists for the cases where cancelling is wrong: a duplicate, a test
+   * order, obvious spam. Hence two confirmations and no bulk version.
+   */
+  const remove = async () => {
+    const label = selected.order_number
+    if (!confirm(`Delete ${label} permanently?\n\nThis cannot be undone. To keep the record instead, mark it cancelled.`)) return
+    if (!confirm(`Last chance — really delete ${label}?`)) return
+
+    const { error } = await supabase.from(table).delete().eq('id', selected.id)
+    if (error) {
+      toast(friendlyError(error, 'Could not delete that order.'), 'bad')
+      return
+    }
+    toast(`${label} deleted.`)
+    setSelected(null)
+    load()
+  }
+
   const updateStatus = async (nextStatus) => {
     const { error } = await supabase.from(table).update({ status: nextStatus }).eq('id', selected.id)
     if (error) {
@@ -299,6 +323,24 @@ export default function AdminOrders() {
                   )}
                 </>
               )}
+
+              {/* Destructive actions, kept away from everything else. */}
+              <hr className="hairline my-6" />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="help m-0" style={{ maxWidth: '38ch' }}>
+                  Cancelling keeps the record and removes it from revenue. Delete only
+                  duplicates, tests and spam.
+                </p>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ color: 'var(--bad)' }}
+                  onClick={remove}
+                >
+                  <Icon name="trash" size={15} />
+                  Delete this order
+                </button>
+              </div>
             </div>
           )}
         </div>

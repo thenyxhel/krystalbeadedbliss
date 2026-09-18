@@ -125,7 +125,10 @@ export default function HomePage() {
               ready to wear today, or built from scratch around a colour you have in mind.
             </p>
 
-            <div className="flex flex-wrap gap-3 mt-9">
+            {/* Stacked and full width on a phone. Side by side they wrapped
+                to two lines of different widths, which reads as an accident
+                rather than a pair of choices. */}
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 mt-9">
               <Link to="/shop" className="btn btn-primary no-underline">
                 Shop the collection
                 <Icon name="arrowRight" size={17} />
@@ -137,7 +140,10 @@ export default function HomePage() {
 
           </div>
 
-          <div className="lg:col-span-6">
+          {/* When there is no featured piece the column has nothing to show,
+              so it collapses instead of reserving a tall empty box above the
+              fold — which on a phone pushed everything else off screen. */}
+          <div className={hero?.images?.[0] ? 'lg:col-span-6' : 'hidden lg:block lg:col-span-6'}>
             {hero?.images?.[0] ? (
               <Link to={`/product/${hero.slug || hero.id}`} className="block group no-underline">
                 <div className="frame" style={{ aspectRatio: '5 / 6' }}>
@@ -161,7 +167,7 @@ export default function HomePage() {
             ) : (
               <div
                 className="frame flex items-center justify-center"
-                style={{ aspectRatio: '5 / 6', background: 'var(--bg-sunk)' }}
+                style={{ aspectRatio: '4 / 3', background: 'var(--bg-sunk)' }}
               >
                 <div className="text-center px-8">
                   <Mark size={54} className="mx-auto" />
