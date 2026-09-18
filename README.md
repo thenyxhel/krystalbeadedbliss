@@ -1,7 +1,8 @@
 # Krystal Beaded Bliss
 
-Hand-strung bead jewellery from Lagos. React + Vite + Tailwind on the front,
-Supabase (Postgres, Auth, Storage) on the back, deployed to Vercel.
+Handmade beaded and chain jewellery from Lagos. React + Vite + Tailwind on the
+front, Supabase (Postgres, Auth, Storage) on the back, deployed to Vercel at
+[kbbjewelries.com](https://kbbjewelries.com).
 
 ---
 
@@ -10,42 +11,36 @@ Supabase (Postgres, Auth, Storage) on the back, deployed to Vercel.
 The previous version had three problems that are not fixed by deploying new
 code. You have to act on them.
 
-### 1. `.env` was committed to git
+### 1. `.env` was committed to git, and the repo is public
 
-Real Supabase keys and real bank account details are in the history of commits
-`b3fba66`, `bfa9774` and `b08de1f`. `.gitignore` now excludes it and the file
-has been untracked, but **git history still contains the old values.**
+Real Supabase keys and bank account details are in the history of commits
+`b3fba66`, `bfa9774` and `b08de1f`. `.gitignore` now excludes the file and it
+has been untracked, but git history still contains the old values.
 
-- Move to the new-format publishable key, then **disable the legacy API keys**:
-  Dashboard, Settings, API Keys, Legacy API keys, Disable. Switching keys does
-  not revoke the old one by itself, and until it is disabled the key sitting in
-  those commits still works.
-- If this repo was ever pushed anywhere public, treat the bank details as
-  published. They are not a secret that can be rotated, so decide whether that
-  matters to you.
-- To scrub the history entirely you would need `git filter-repo` and a force
-  push, which rewrites every commit hash. For a private repo, disabling the old
-  key is usually enough.
+What actually mattered, and is now closed:
+
+- The old anon key has been superseded by a publishable key, and the **legacy
+  API keys are disabled**, so the leaked one is dead.
+- The RLS policies that made that key dangerous have been replaced.
+
+What does not need fixing: the bank account name and number are displayed to
+every customer on the checkout page by design, so their presence in git adds
+no exposure. Rewriting history with `git filter-repo` would break every clone
+and buy nothing.
 
 ### 2. Customer payment receipts were world-readable
 
-They were stored in a **public** bucket under `KBB-XXXXXX.jpg` -- the order
-number. Anyone who guessed six characters could read a stranger's bank receipt.
-`schema.sql` now flips that bucket to private, but **the existing objects are
-still there**. Review `payment-receipts` in the Storage dashboard and delete
-anything you no longer need.
+They were stored in a **public** bucket under `KBB-XXXXXX.jpg`, the order
+number. Anyone who guessed six characters could read a stranger's bank
+receipt. `schema.sql` now makes that bucket private; the old objects have been
+deleted.
 
 ### 3. Anyone who signed up was an admin
 
 Every RLS policy said `auth.role() = 'authenticated'`, which means *any*
-signed-in user, not *your* user. If email signups were enabled, a stranger
-could have read every customer's name, phone, email and home address.
-
-- Run the new `supabase/schema.sql`, which scopes everything to an `admins`
-  allow-list.
-- Then turn signups **off**: Dashboard, Authentication, Providers, Email,
-  "Allow new users to sign up" = off.
-- Check for accounts you do not recognise under Authentication, Users.
+signed-in user. Run the new `supabase/schema.sql`, which scopes everything to
+an `admins` allow-list, then turn signups off under Authentication, Providers,
+Email.
 
 ---
 
@@ -62,7 +57,7 @@ npm run dev
 | Variable | What it is |
 |---|---|
 | `VITE_SUPABASE_URL` | Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | The publishable key (`sb_publishable_...`). Safe in the browser; RLS is what protects you |
+| `VITE_SUPABASE_ANON_KEY` | The publishable key (`sb_publishable_...`) |
 | `VITE_WHATSAPP_NUMBER` | Country code, no `+`, e.g. `2348012345678` |
 | `VITE_INSTAGRAM_URL` | Optional; the footer link hides itself if unset |
 | `VITE_BANK_NAME` / `_ACCOUNT_NAME` / `_ACCOUNT_NUMBER` | Shown at checkout |
@@ -71,15 +66,18 @@ npm run dev
 There is deliberately **no** `VITE_ADMIN_EMAIL`. Admin access is a row in a
 database table, not a string the browser can read.
 
+**Vite bakes these into the bundle at build time.** Changing one in Vercel does
+nothing until something rebuilds. Values must not contain trailing newlines.
+
 ### Database
 
-Run `supabase/schema.sql` in the Supabase SQL editor. It is idempotent, so it is
-safe to re-run after edits. The block at the top drops any superseded function
-before redefining it, which is what makes a re-run survive a changed signature.
+Run `supabase/schema.sql` in the Supabase SQL editor. It is idempotent. The
+block at the top drops superseded functions before redefining them, which is
+what lets a re-run survive a changed signature.
 
 ### Make yourself an admin
 
-1. Dashboard, Authentication, Users, *Add user*. Use a strong password.
+1. Dashboard, Authentication, Users, *Add user*.
 2. In the SQL editor:
 
    ```sql
@@ -88,8 +86,29 @@ before redefining it, which is what makes a re-run survive a changed signature.
    on conflict (user_id) do nothing;
    ```
 
-3. Sign in at `/admin/login` and confirm you land on the dashboard.
-4. Turn off public signups.
+3. Sign in at `/admin/login`, then turn off public signups.
+
+---
+
+## The catalogue has two axes
+
+This is the part most likely to trip up a future change.
+
+**`category`** — what the piece is:
+`bracelet`, `necklace`, `set`, `watch`, `keychain`, `bagcharm`, `earrings`
+
+**`style`** — how it is made:
+`beaded`, `chains`, `both`
+
+Bracelets and necklaces are one or the other. Keychains and bag charms
+routinely combine beading and chain, so `both` is a real value rather than a
+fudge. The shop filters on each independently, because "beaded bracelets" and
+"all keychains" are different questions.
+
+Both lists live in `src/lib/config.js` and are mirrored by CHECK constraints in
+`schema.sql`. **Change them together.** The admin product form, the shop
+filters, the custom builder's piece types and the base-price fields all derive
+from the config, so adding a category there is otherwise enough.
 
 ---
 
@@ -97,125 +116,133 @@ before redefining it, which is what makes a re-run survive a changed signature.
 
 ### Money is decided by the server, never the browser
 
-This is the single most important thing in the codebase.
+The cart holds `{ product_id, quantity }` and a display snapshot. Checkout
+calls `place_order()`, a `SECURITY DEFINER` function that looks every price up
+in `products`, locks rows with `FOR UPDATE` so the last item cannot be
+oversold, checks and decrements stock, and writes totals it computed itself.
 
-The cart holds `{ product_id, quantity }` and a display snapshot. Checkout calls
-`place_order()`, a `SECURITY DEFINER` Postgres function that looks every price
-up in the `products` table, locks the rows (`FOR UPDATE`, so two people cannot
-buy the last one), checks stock, decrements it, and writes the order with totals
-it computed itself. The same is true of `place_custom_order()`, which prices a
-custom piece from `custom_config`.
+The `orders` table has **no public INSERT policy at all**.
 
-Consequently the `orders` table has **no public INSERT policy at all**. Editing
-localStorage, or posting a handcrafted request, changes nothing.
+To prove it: put something in the cart, set its price to 1 in localStorage,
+check out, and look at what the admin panel recorded.
 
-To prove it to yourself: put something in the cart, set its price to 1 in
-localStorage, check out, and look at what the admin panel recorded.
+`place_custom_order()` works the same way, and only demands a bead type when
+the chosen style actually has beads.
 
 ### Authorization is one function
 
 `is_admin()` checks for a row in `admins`. Every admin policy calls it, and so
 does the React route guard, so the UI and the database agree on who you are and
-the database is the one that decides.
+the database decides.
 
 ### Receipts are private
 
 Uploaded to a private bucket under a random UUID path. Customers may write and
-may never read. Admins view them through 60-second signed URLs minted on demand.
+may never read. Admins view them through 60-second signed URLs.
 
-### The design system
+---
 
-Tokens live in `src/index.css` as CSS custom properties and are exposed to
-Tailwind in `tailwind.config.js`. **No component should contain a hex code.**
-Every text/background pair in both themes meets WCAG AA; the light-mode gold
-button in the old design sat at 2.3:1, which is unreadable in daylight.
+## Design
+
+### The mark
+
+A coil of beads, drawn as SVG in `src/components/Brand.jsx` — not a PNG. It
+exists in two variants of the same gesture: 26 beads spiralling inward where
+there is room, and an even ring of 7 below 44px, because the fine beads merge
+into a smudge at favicon size. `<Mark size={n} />` picks the variant; pass
+`detail="full"` or `"compact"` to force one.
+
+Its colours are theme tokens, so the mark follows the site rather than sitting
+on top of it as a fixed image.
+
+### Tokens
+
+In `src/index.css`, exposed to Tailwind in `tailwind.config.js`.
+**No component should contain a hex code.**
+
+`--brand-*` are the mark's own colours and are identical in both themes,
+because the logo is one object and should not appear to be two. They are for
+graphics. For text, use `--accent`, which is tuned per theme.
 
 | | Dark (default) | Light |
 |---|---|---|
-| `--bg` | `#16120E` | `#FBF7F0` cream |
-| `--ink` | `#F2EBDF` | `#1A1714` |
-| `--ink-2` | `#BDB2A2` (8.9:1) | `#5C544C` (7.0:1) |
-| `--clay` | `#E07A4E` (6.3:1) | `#B4552F` (4.6:1) |
-| `--brass` | `#D9B368` (9.4:1) | `#7A6231` (5.4:1) |
-| `--sage` | `#9DAB8E` | `#4F5C43` |
-| `--band` | `#E8CDB8` (identical in both) | `#E8CDB8` |
+| `--bg` | `#150A1F` | `#FFFDFA` |
+| `--ink` | `#F7F2FB` (17.4:1) | `#14101C` (18.5:1) |
+| `--ink-2` | `#C9B8DC` (10.4:1) | `#544B63` (8.1:1) |
+| `--accent` | `#FF2E8B` (5.5:1) | `#D1005F` (5.3:1) |
+| `--gold` | `#FFC814` (12.4:1) | `#8A5A00` (5.8:1) |
+| `--teal` | `#26C6D1` (9.2:1) | `#00707F` (5.7:1) |
+| `--band` | `#5B1A8C` (identical) | `#5B1A8C` |
 
-Dark is the default. Beads and metal read better against a dark ground, and
-light stays one tap away in the header with the choice remembered. The initial
-class is set by an inline script in `index.html`, before first paint, so there
-is no flash of the wrong theme.
+Every pair meets WCAG AA in both themes. Two rules worth keeping:
 
-`--band` is the one bright warm strip on the page, used for the reassurance row
-under the hero. It carries its own ink tokens so it reads identically in both
-themes without anything being re-checked at the call site.
+- **Dark ink on neon fills, never white.** White on `#FF2E8B` is 3.1:1.
+- **`--brand-purple` is a background only.** As text on the dark ground it is
+  1.8:1.
 
-Type is **Fraunces** (display) and **Inter** (UI), two variable families, down
-from four. Icons are drawn in `src/components/Icon.jsx`; there are no emoji
-anywhere in the product, because emoji cannot take a brand colour and render as
-a different picture on every device.
+Type is **Outfit** (display, 700–800) and **Inter** (UI). Dark is the default;
+light is one tap away and the choice is remembered. The initial class is set by
+an inline script in `index.html`, before first paint.
 
 ### Designing around the photography
 
-Product shots are taken on a phone, on whatever surface was to hand, so their
-backgrounds and white balance vary. Three things in the design exist only to
-make an inconsistent set read as a deliberate grid:
+Product shots are taken on a phone, on whatever surface was to hand. Three
+things exist only to make an inconsistent set read as a deliberate grid:
 
 - **`.frame::after`** draws a hairline on top of every image, so a bright photo
   never looks like a hole punched in a dark page.
-- **Three across, not four or five.** Larger frames flatter amateur photography;
-  small dense tiles make it look like clutter.
+- **Three across, not four or five.** Larger frames flatter amateur
+  photography; small dense tiles make it look like clutter.
 - **Category tiles carry their own scrim gradient**, so the label stays legible
   over a photo nobody has vetted.
 
-If the photography ever gets upgraded to cut-outs on a seamless background, all
-three can be relaxed.
+If the photography is ever upgraded to cut-outs on a seamless, all three can be
+relaxed.
 
-### Routes
+---
+
+## Routes
 
 | Path | |
 |---|---|
 | `/` | Home |
-| `/shop` | Collection; filter, search, sort and paging all happen in Postgres |
-| `/product/:handle` | By slug or by id, so old links keep working |
-| `/custom` | Five-step builder |
+| `/shop` | Filter, search, sort and paging all happen in Postgres |
+| `/product/:handle` | By slug or id, so old links keep working |
+| `/custom` | Builder; steps are computed from the chosen style |
 | `/cart`, `/checkout`, `/order-confirmation` | Purchase flow |
-| `/track` | Look up an order; returns status and a first name only |
+| `/track` | Status and a first name only |
 | `/complaint` | Report a problem |
-| `/admin/*` | Admin panel, lazy-loaded, so shoppers never download it |
+| `/admin/*` | Lazy-loaded, so shoppers never download it |
 
 `/admin` is a plain path on purpose. The previous "secret" URL shipped in the
-JavaScript bundle in plain text, so it protected nothing while costing you a
-bookmarkable login.
+JavaScript bundle in plain text.
 
 ---
 
 ## Accessibility
 
-Held to WCAG 2.1 AA:
+Held to WCAG 2.1 AA: visible `:focus-visible` rings, product cards as real
+links, a skip link, `aria-live` regions, labelled fields with real error text,
+a mobile menu that traps scroll and closes on Escape, `prefers-reduced-motion`,
+fixed image dimensions, and no custom cursor.
 
-- Visible `:focus-visible` rings everywhere; no `outline: none` without a
-  replacement.
-- Product cards are links, so they are focusable, crawlable and can be opened
-  in a new tab.
-- Skip-to-content link; `aria-live` regions for toasts, search results and
-  order lookups; labelled form fields with real error text.
-- The mobile menu traps scroll, closes on Escape and returns focus.
-- `prefers-reduced-motion` is honoured.
-- Every image has fixed dimensions, so the grid does not reflow as it loads.
-- No custom cursor. The operating system already knows what a text field
-  looks like.
+---
+
+## Deployment
+
+Pushing to `master` deploys. **Do not deploy with `vercel --prod` as well** —
+once the CLI has built a given tree, Vercel treats a later push of the same
+tree as already deployed and skips it, and you then need a fresh commit to get
+unstuck.
 
 ---
 
 ## Known limits
 
-- **Orphaned receipts.** If the upload succeeds but `place_order()` then fails,
-  the file stays in storage unreferenced. It is private and harmless; sweep the
-  bucket occasionally if it bothers you.
+- **Orphaned receipts.** If the upload succeeds but `place_order()` fails, the
+  file stays in storage unreferenced. Private and harmless; sweep occasionally.
 - **No transactional email.** Confirmation happens over WhatsApp by design.
-  Complaint responses are recorded for your reference, not sent automatically.
-- **No payment gateway.** Bank transfer plus a receipt, which is what the
-  business actually does.
+- **No payment gateway.** Bank transfer plus a receipt.
 - **No tests.** The highest-value additions would be around `place_order()`:
   stock limits, price integrity, concurrent purchase of the last item.
 
@@ -237,5 +264,5 @@ a Windows binary-resolution bug. It behaves identically on Vercel.
 ## A note for whoever edits this file next
 
 Do not run `sed -i` or `perl -pi` over the Markdown or the SQL in this repo.
-Both are full of multi-byte characters, and those tools will happily re-encode
-the whole file as a side effect of a one-line change. Use an editor.
+Both are full of multi-byte characters, and those tools will re-encode the
+whole file as a side effect of a one-line change. Use an editor.
