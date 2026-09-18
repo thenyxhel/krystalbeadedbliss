@@ -1,153 +1,160 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { useToast, ToastContainer } from '../../components/Toast'
+import { formatDate, friendlyError } from '../../lib/utils'
+import { useToast } from '../../components/Toast'
+import Icon from '../../components/Icon'
 
-const STATUS_COLORS = { pending: '#EAB308', approved: '#22C55E', rejected: 'var(--pink)' }
-
-function Stars({ value, size = 14 }) {
-  return (
-    <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map(n => (
-        <svg key={n} width={size} height={size} viewBox="0 0 24 24"
-          fill={n <= value ? 'var(--gold)' : 'none'} stroke="var(--gold)" strokeWidth="1.5">
-          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-        </svg>
-      ))}
-    </div>
-  )
-}
+const FILTERS = [
+  { key: 'pending', label: 'Waiting on you' },
+  { key: 'approved', label: 'Published' },
+  { key: 'rejected', label: 'Rejected' },
+  { key: 'all', label: 'Everything' },
+]
 
 export default function AdminReviews() {
-  const { toasts, toast } = useToast()
+  const { toast } = useToast()
+  const [filter, setFilter] = useState('pending')
   const [reviews, setReviews] = useState([])
-  const [loading, setLoad]    = useState(true)
-  const [filter, setFilter]   = useState('pending')
-  const [products, setProducts] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [busyId, setBusyId] = useState(null)
 
   const load = async () => {
-    setLoad(true)
-    let q = supabase.from('reviews').select('*').order('created_at', { ascending: false })
-    if (filter !== 'all') q = q.eq('status', filter)
-    const { data } = await q
-    setReviews(data || [])
+    setLoading(true)
+    let query = supabase
+      .from('reviews')
+      .select('*, products(name, slug)')
+      .order('created_at', { ascending: false })
+      .limit(200)
 
-    // Fetch product names for context
-    const ids = [...new Set((data || []).map(r => r.product_id))]
-    if (ids.length) {
-      const { data: prods } = await supabase.from('products').select('id, name').in('id', ids)
-      const map = {}
-      ;(prods || []).forEach(p => { map[p.id] = p.name })
-      setProducts(map)
+    if (filter !== 'all') query = query.eq('status', filter)
+
+    const { data, error } = await query
+    if (error) toast(friendlyError(error, 'Could not load reviews.'), 'bad')
+    setReviews(data ?? [])
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter])
+
+  const setStatus = async (review, status) => {
+    setBusyId(review.id)
+    const { error } = await supabase.from('reviews').update({ status }).eq('id', review.id)
+    setBusyId(null)
+
+    if (error) {
+      toast(friendlyError(error, 'Could not update that review.'), 'bad')
+      return
     }
-    setLoad(false)
+    toast(status === 'approved' ? 'Review published.' : 'Review rejected.')
+    load()
   }
 
-  useEffect(() => { load() }, [filter])
-
-  const updateStatus = async (id, status) => {
-    const { error } = await supabase.from('reviews').update({ status }).eq('id', id)
-    if (error) toast(error.message, 'error')
-    else { toast(`Review ${status}!`); load() }
-  }
-
-  const deleteReview = async (id) => {
+  const remove = async (review) => {
     if (!confirm('Delete this review permanently?')) return
-    const { error } = await supabase.from('reviews').delete().eq('id', id)
-    if (error) toast(error.message, 'error')
-    else { toast('Review deleted.'); load() }
+    const { error } = await supabase.from('reviews').delete().eq('id', review.id)
+    if (error) toast(friendlyError(error), 'bad')
+    else {
+      toast('Review deleted.')
+      load()
+    }
   }
 
   return (
     <div>
-      <ToastContainer toasts={toasts} />
+      <header className="mb-7">
+        <p className="eyebrow mb-2">Moderation</p>
+        <h1 className="h1">Reviews</h1>
+        <p className="text-sm text-ink-2 mt-2">
+          Nothing appears on the shop until you approve it.
+        </p>
+      </header>
 
-      <div className="mb-8">
-        <p className="section-eyebrow">Customer feedback</p>
-        <h1 className="section-title">Reviews</h1>
-      </div>
-
-      {/* Filter */}
-      <div className="flex gap-2 flex-wrap mb-6">
-        {['all', 'pending', 'approved', 'rejected'].map(s => (
-          <button
-            key={s}
-            onClick={() => setFilter(s)}
-            className="px-3 py-1.5 rounded-full text-xs font-semibold capitalize transition-all"
-            style={{
-              background: filter === s ? (STATUS_COLORS[s] || 'var(--gold)') : 'var(--surf)',
-              color:      filter === s ? 'white' : 'var(--tx2)',
-              border: '1px solid var(--bd)',
-            }}
-          >
-            {s}
+      <div className="flex gap-2 flex-wrap mb-6" role="group" aria-label="Filter reviews">
+        {FILTERS.map((f) => (
+          <button key={f.key} type="button" className="chip" aria-pressed={filter === f.key} onClick={() => setFilter(f.key)}>
+            {f.label}
           </button>
         ))}
       </div>
 
-      <div className="card overflow-hidden">
-        {loading ? (
-          <p className="p-5 text-sm" style={{ color: 'var(--tx2)' }}>Loading…</p>
-        ) : reviews.length === 0 ? (
-          <p className="p-5 text-sm" style={{ color: 'var(--tx2)' }}>No reviews found.</p>
-        ) : (
-          reviews.map((r, i) => (
-            <div
-              key={r.id}
-              className="p-5"
-              style={{ borderBottom: i < reviews.length - 1 ? '1px solid var(--bd)' : 'none' }}
-            >
-              <div className="flex items-start justify-between mb-2">
+      {loading ? (
+        <div className="flex flex-col gap-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="skeleton" style={{ height: 120 }} />
+          ))}
+        </div>
+      ) : reviews.length === 0 ? (
+        <div className="card p-10 text-center">
+          <Icon name="star" size={24} className="mx-auto text-ink-3" />
+          <p className="text-sm text-ink-3 mt-3">
+            {filter === 'pending' ? 'Nothing waiting. All caught up.' : 'Nothing here.'}
+          </p>
+        </div>
+      ) : (
+        <ul className="list-none p-0 m-0 grid lg:grid-cols-2 gap-4">
+          {reviews.map((r) => (
+            <li key={r.id} className="card p-5">
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold" style={{ color: 'var(--tx)' }}>{r.customer_name}</p>
-                  <p className="text-xs" style={{ color: 'var(--tx2)' }}>
-                    on <span style={{ color: 'var(--gold)' }}>{products[r.product_id] || 'Unknown product'}</span>
-                  </p>
+                  <p className="font-medium">{r.customer_name}</p>
+                  <p className="meta">on {r.products?.name ?? 'a deleted product'}</p>
                 </div>
-                <span
-                  className="text-xs font-bold px-2 py-0.5 rounded-full text-white capitalize"
-                  style={{ background: STATUS_COLORS[r.status] }}
-                >
-                  {r.status}
+                <span className="inline-flex gap-0.5" role="img" aria-label={`${r.rating} out of 5`}>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Icon
+                      key={n}
+                      name="star"
+                      size={14}
+                      style={{ color: 'var(--brass)', fill: n <= r.rating ? 'var(--brass)' : 'none' }}
+                    />
+                  ))}
                 </span>
               </div>
 
-              <Stars value={r.rating} />
-              <p className="text-sm mt-2 leading-relaxed" style={{ color: 'var(--tx)' }}>{r.comment}</p>
-              <p className="text-xs mt-2" style={{ color: 'var(--tx2)' }}>
-                {new Date(r.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
-              </p>
+              <p className="text-sm text-ink-2 mt-3">{r.comment}</p>
 
-              <div className="flex gap-2 mt-3">
-                {r.status !== 'approved' && (
+              <div className="flex items-center justify-between gap-3 mt-4 pt-4" style={{ borderTop: '1px solid var(--line)' }}>
+                <p className="meta">{formatDate(r.created_at)}</p>
+                <div className="flex gap-1.5">
+                  {r.status !== 'approved' && (
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      disabled={busyId === r.id}
+                      onClick={() => setStatus(r, 'approved')}
+                    >
+                      <Icon name="check" size={14} />
+                      Publish
+                    </button>
+                  )}
+                  {r.status !== 'rejected' && (
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      disabled={busyId === r.id}
+                      onClick={() => setStatus(r, 'rejected')}
+                    >
+                      Reject
+                    </button>
+                  )}
                   <button
-                    onClick={() => updateStatus(r.id, 'approved')}
-                    className="text-xs font-bold px-3 py-1.5 rounded-full text-white"
-                    style={{ background: STATUS_COLORS.approved, border: 'none' }}
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    style={{ color: 'var(--bad)' }}
+                    onClick={() => remove(r)}
+                    aria-label="Delete review"
                   >
-                    Approve
+                    <Icon name="trash" size={15} />
                   </button>
-                )}
-                {r.status !== 'rejected' && (
-                  <button
-                    onClick={() => updateStatus(r.id, 'rejected')}
-                    className="text-xs font-bold px-3 py-1.5 rounded-full text-white"
-                    style={{ background: STATUS_COLORS.rejected, border: 'none' }}
-                  >
-                    Reject
-                  </button>
-                )}
-                <button
-                  onClick={() => deleteReview(r.id)}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-full"
-                  style={{ background: 'var(--surf2)', color: 'var(--tx2)', border: 'none' }}
-                >
-                  Delete
-                </button>
+                </div>
               </div>
-            </div>
-          ))
-        )}
-      </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

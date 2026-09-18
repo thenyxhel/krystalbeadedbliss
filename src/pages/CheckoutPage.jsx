@@ -1,238 +1,437 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { supabase } from '../lib/supabase'
-import { CONFIG } from '../lib/config'
-import { fmt, generateOrderNumber } from '../lib/utils'
+import { CONFIG, bankConfigured } from '../lib/config'
+import { useSeo } from '../lib/useSeo'
+import { fmt, friendlyError, receiptPath } from '../lib/utils'
+import { useToast } from '../components/Toast'
+import Icon from '../components/Icon'
+import { Mark } from '../components/Brand'
+
+const MAX_RECEIPT_BYTES = 5 * 1024 * 1024
+const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+
+const STEPS = ['Your details', 'Payment']
+
+/**
+ * Defined at module scope on purpose. Declaring a component inside another
+ * component gives it a new identity on every render, so React unmounts and
+ * remounts the <input> it wraps — which drops focus after each keystroke.
+ */
+function Field({ id, label, hint, error, showError, children }) {
+  return (
+    <div>
+      <label className="label" htmlFor={id}>
+        {label}
+      </label>
+      {children}
+      {showError && error ? (
+        <p className="error-text mt-1.5" id={`${id}-error`}>
+          {error}
+        </p>
+      ) : hint ? (
+        <p className="help">{hint}</p>
+      ) : null}
+    </div>
+  )
+}
 
 export default function CheckoutPage() {
-  const { items, total, clear } = useCart()
-  const nav = useNavigate()
+  const { items, subtotal, clear, serverLines } = useCart()
+  const navigate = useNavigate()
+  const { toast } = useToast()
 
-  const [step, setStep]       = useState(0) // 0: details, 1: payment
-  const [submitting, setSub]  = useState(false)
-  const [error, setError]     = useState('')
-  const [receiptFile, setReceipt] = useState(null)
+  useSeo({ title: 'Checkout', noindex: true })
 
+  const [step, setStep] = useState(0)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [receipt, setReceipt] = useState(null)
+  const [touched, setTouched] = useState({})
   const [form, setForm] = useState({
-    name: '', email: '', phone: '', address: '', state: '', notes: '',
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    state: '',
+    notes: '',
   })
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const set = (key, value) => setForm((f) => ({ ...f, [key]: value }))
+  const blur = (key) => setTouched((t) => ({ ...t, [key]: true }))
 
-  if (items.length === 0) {
+  // Client-side validation exists to be *helpful*, not to be trusted. The same
+  // rules are enforced again inside place_order().
+  const errors = {
+    name: form.name.trim().length < 2 ? 'Please enter your full name.' : null,
+    email: !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email) ? 'Please enter a valid email address.' : null,
+    phone: form.phone.replace(/\D/g, '').length < 10 ? 'Please enter a valid phone number.' : null,
+    address: form.address.trim().length < 8 ? 'Please give a complete address.' : null,
+    state: form.state.trim().length < 2 ? 'Please enter your state.' : null,
+  }
+  const detailsValid = Object.values(errors).every((e) => e === null)
+
+  if (items.length === 0 && !submitting) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
-        <p className="font-serif text-2xl" style={{ color: 'var(--tx)' }}>Your cart is empty</p>
-        <Link to="/shop" className="btn-primary">Browse Shop</Link>
+      <div className="page-narrow py-24 text-center">
+        <Mark size={44} className="mx-auto opacity-60" />
+        <h1 className="h1 mt-6">There is nothing to check out.</h1>
+        <Link to="/shop" className="btn btn-primary mt-7 no-underline">
+          Browse the collection
+        </Link>
       </div>
     )
   }
 
-  const detailsValid = form.name && form.email && form.phone && form.address && form.state
+  const pickReceipt = (file) => {
+    setError('')
+    if (!file) return
+    if (!ACCEPTED.includes(file.type)) {
+      setError('Please upload a JPG, PNG, WebP or PDF.')
+      return
+    }
+    if (file.size > MAX_RECEIPT_BYTES) {
+      setError('That file is larger than 5MB. Please upload a smaller one.')
+      return
+    }
+    setReceipt(file)
+  }
 
-  const handleSubmit = async () => {
-    if (!receiptFile) { setError('Please upload your payment receipt.'); return }
-    setSub(true); setError('')
+  const submit = async () => {
+    if (!receipt) {
+      setError('Please upload your payment receipt.')
+      return
+    }
+    setSubmitting(true)
+    setError('')
 
-    const orderNumber = generateOrderNumber()
-
-    // Upload receipt
-    const ext  = receiptFile.name.split('.').pop()
-    const path = `${orderNumber}.${ext}`
-    const { error: upErr } = await supabase.storage
+    // 1. The receipt goes to a private bucket under an unguessable name.
+    //    The old code named it after the order number in a *public* bucket,
+    //    so anyone who guessed six characters could read a stranger's
+    //    bank receipt.
+    const path = receiptPath(receipt)
+    const { error: uploadError } = await supabase.storage
       .from('payment-receipts')
-      .upload(path, receiptFile)
+      .upload(path, receipt, { contentType: receipt.type, upsert: false })
 
-    if (upErr) { setError('Receipt upload failed: ' + upErr.message); setSub(false); return }
+    if (uploadError) {
+      setSubmitting(false)
+      setError(friendlyError(uploadError, 'We could not upload your receipt. Please try again.'))
+      return
+    }
 
-    const { data: urlData } = supabase.storage.from('payment-receipts').getPublicUrl(path)
-
-    // Insert order
-    const { error: ordErr } = await supabase.from('orders').insert({
-      order_number:        orderNumber,
-      customer_name:       form.name,
-      email:               form.email,
-      phone:               form.phone,
-      address:             form.address,
-      state:               form.state,
-      items:               items.map(i => ({
-        product_id: i.id, name: i.name, price: i.price,
-        quantity: i.qty, image: i.images?.[0] || null,
-      })),
-      subtotal:            total,
-      delivery_fee:        CONFIG.delivery.fee,
-      total:               total + CONFIG.delivery.fee,
-      payment_receipt_url: urlData?.publicUrl || '',
-      status:              'pending',
-      notes:               form.notes || null,
+    // 2. The server prices the order. We send ids and quantities — no money.
+    const { data, error: orderError } = await supabase.rpc('place_order', {
+      p_customer_name: form.name,
+      p_email: form.email,
+      p_phone: form.phone,
+      p_address: form.address,
+      p_state: form.state,
+      p_items: serverLines(),
+      p_receipt_path: path,
+      p_notes: form.notes || null,
     })
 
-    if (ordErr) { setError(ordErr.message); setSub(false); return }
+    if (orderError) {
+      setSubmitting(false)
+      setError(friendlyError(orderError, 'We could not place your order. Please try again.'))
+      return
+    }
 
+    const placed = Array.isArray(data) ? data[0] : data
     clear()
-    nav('/order-confirmation', {
-      state: { orderNumber, isCustom: false, customerName: form.name, total }
+    navigate('/order-confirmation', {
+      replace: true,
+      state: {
+        orderNumber: placed.order_number,
+        total: placed.total,
+        customerName: form.name,
+        isCustom: false,
+      },
     })
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-6 pb-24">
-      <div className="pt-4 pb-8">
-        <p className="section-eyebrow">Almost there</p>
-        <h1 className="section-title">Checkout</h1>
-      </div>
+    <div className="page py-10">
+      <header className="mb-8">
+        <p className="eyebrow mb-2">Almost there</p>
+        <h1 className="h1">Checkout</h1>
+      </header>
 
-      <div className="grid md:grid-cols-5 gap-8">
-        {/* Form */}
-        <div className="md:col-span-3">
-          {/* Step 0: Details */}
+      {/* Progress — two steps, stated plainly. */}
+      <ol className="flex items-center gap-3 mb-10 list-none p-0 m-0">
+        {STEPS.map((label, i) => (
+          <li key={label} className="flex items-center gap-3">
+            <span
+              className="numeric flex items-center justify-center text-xs font-bold"
+              style={{
+                width: 26,
+                height: 26,
+                borderRadius: '50%',
+                background: i <= step ? 'var(--ink)' : 'transparent',
+                color: i <= step ? 'var(--bg)' : 'var(--ink-3)',
+                border: `1px solid ${i <= step ? 'var(--ink)' : 'var(--line-strong)'}`,
+              }}
+            >
+              {i + 1}
+            </span>
+            <span className="text-sm" style={{ color: i <= step ? 'var(--ink)' : 'var(--ink-3)' }} aria-current={i === step ? 'step' : undefined}>
+              {label}
+            </span>
+            {i < STEPS.length - 1 && <span className="w-8 h-px" style={{ background: 'var(--line-strong)' }} />}
+          </li>
+        ))}
+      </ol>
+
+      <div className="grid lg:grid-cols-12 gap-10">
+        <div className="lg:col-span-7">
           {step === 0 && (
-            <div className="card p-6">
-              <h2 className="font-semibold mb-5" style={{ color: 'var(--tx)' }}>Your details</h2>
-              <div className="flex flex-col gap-4">
-                <div>
-                  <label className="label">Full Name</label>
-                  <input className="input" placeholder="Your name" value={form.name} onChange={e => set('name', e.target.value)} />
+            <div className="card p-6 sm:p-7 animate-fade">
+              <h2 className="h3 mb-6">Where are we sending it?</h2>
+
+              <div className="flex flex-col gap-5">
+                <Field id="name" error={errors.name} showError={touched.name} label="Full name">
+                  <input
+                    id="name"
+                    className="field"
+                    autoComplete="name"
+                    value={form.name}
+                    onChange={(e) => set('name', e.target.value)}
+                    onBlur={() => blur('name')}
+                    aria-invalid={touched.name && !!errors.name}
+                    aria-describedby={touched.name && errors.name ? 'name-error' : undefined}
+                  />
+                </Field>
+
+                <div className="grid sm:grid-cols-2 gap-5">
+                  <Field id="email" error={errors.email} showError={touched.email} label="Email" hint="For your receipt.">
+                    <input
+                      id="email"
+                      type="email"
+                      inputMode="email"
+                      className="field"
+                      autoComplete="email"
+                      value={form.email}
+                      onChange={(e) => set('email', e.target.value)}
+                      onBlur={() => blur('email')}
+                      aria-invalid={touched.email && !!errors.email}
+                    />
+                  </Field>
+
+                  <Field id="phone" error={errors.phone} showError={touched.phone} label="WhatsApp number" hint="This is how we confirm your order.">
+                    <input
+                      id="phone"
+                      type="tel"
+                      inputMode="tel"
+                      className="field"
+                      autoComplete="tel"
+                      placeholder="0801 234 5678"
+                      value={form.phone}
+                      onChange={(e) => set('phone', e.target.value)}
+                      onBlur={() => blur('phone')}
+                      aria-invalid={touched.phone && !!errors.phone}
+                    />
+                  </Field>
                 </div>
-                <div>
-                  <label className="label">Email</label>
-                  <input className="input" type="email" placeholder="you@email.com" value={form.email} onChange={e => set('email', e.target.value)} />
-                </div>
-                <div>
-                  <label className="label">WhatsApp / Phone</label>
-                  <input className="input" type="tel" placeholder="08XXXXXXXXX" value={form.phone} onChange={e => set('phone', e.target.value)} />
-                </div>
-                <div>
-                  <label className="label">Delivery Address</label>
-                  <textarea className="input resize-none" rows={2} placeholder="House number, street name, area…" value={form.address} onChange={e => set('address', e.target.value)} />
-                </div>
-                <div>
-                  <label className="label">State</label>
-                  <input className="input" placeholder="Lagos, Abuja…" value={form.state} onChange={e => set('state', e.target.value)} />
-                </div>
-                <div>
-                  <label className="label">Notes (optional)</label>
-                  <textarea className="input resize-none" rows={2} placeholder="Any special instructions…" value={form.notes} onChange={e => set('notes', e.target.value)} />
-                </div>
+
+                <Field id="address" error={errors.address} showError={touched.address} label="Delivery address">
+                  <textarea
+                    id="address"
+                    className="field"
+                    rows={2}
+                    style={{ resize: 'vertical' }}
+                    autoComplete="street-address"
+                    placeholder="House number, street, area"
+                    value={form.address}
+                    onChange={(e) => set('address', e.target.value)}
+                    onBlur={() => blur('address')}
+                    aria-invalid={touched.address && !!errors.address}
+                  />
+                </Field>
+
+                <Field id="state" error={errors.state} showError={touched.state} label="State">
+                  <input
+                    id="state"
+                    className="field"
+                    autoComplete="address-level1"
+                    placeholder="Lagos"
+                    value={form.state}
+                    onChange={(e) => set('state', e.target.value)}
+                    onBlur={() => blur('state')}
+                    aria-invalid={touched.state && !!errors.state}
+                  />
+                </Field>
+
+                <Field id="notes" label="Anything we should know? (optional)">
+                  <textarea
+                    id="notes"
+                    className="field"
+                    rows={2}
+                    style={{ resize: 'vertical' }}
+                    placeholder="Wrist size, a gift note, delivery timing…"
+                    value={form.notes}
+                    onChange={(e) => set('notes', e.target.value)}
+                  />
+                </Field>
               </div>
 
               <button
-                className="btn-primary w-full mt-6"
+                type="button"
+                className="btn btn-primary btn-block mt-7"
                 disabled={!detailsValid}
-                onClick={() => setStep(1)}
-                style={{ opacity: detailsValid ? 1 : 0.45 }}
+                onClick={() => {
+                  setTouched({ name: true, email: true, phone: true, address: true, state: true })
+                  if (detailsValid) setStep(1)
+                }}
               >
-                Continue to Payment →
+                Continue to payment
+                <Icon name="arrowRight" size={17} />
               </button>
             </div>
           )}
 
-          {/* Step 1: Payment */}
           {step === 1 && (
-            <div className="card p-6">
-              <button
-                onClick={() => setStep(0)}
-                className="text-xs mb-5 flex items-center gap-1"
-                style={{ background: 'none', border: 'none', color: 'var(--tx2)' }}
-              >
-                ← Edit details
+            <div className="card p-6 sm:p-7 animate-fade">
+              <button type="button" className="btn btn-ghost btn-sm mb-5" style={{ marginLeft: '-0.5rem' }} onClick={() => setStep(0)}>
+                <Icon name="arrowLeft" size={15} />
+                Edit details
               </button>
 
-              <h2 className="font-semibold mb-2" style={{ color: 'var(--tx)' }}>Bank Transfer</h2>
-              <p className="text-sm mb-5" style={{ color: 'var(--tx2)' }}>
-                Transfer {fmt(total)} to the account below, then upload your receipt.
+              <h2 className="h3 mb-2">Pay by bank transfer</h2>
+              <p className="text-sm text-ink-2 mb-6">
+                Send <span className="numeric font-semibold text-ink">{fmt(subtotal)}</span> to the
+                account below, then upload the receipt. We confirm on WhatsApp once the payment
+                lands.
               </p>
 
-              {/* Bank details */}
-              <div className="rounded-xl p-4 mb-5" style={{ background: 'var(--surf2)' }}>
-                {[
-                  ['Bank',           CONFIG.bank.name],
-                  ['Account Name',   CONFIG.bank.accountName],
-                  ['Account Number', CONFIG.bank.accountNumber],
-                  ['Amount',         fmt(total)],
-                ].map(([k, v]) => (
-                  <div key={k} className="flex justify-between py-2" style={{ borderBottom: '1px solid var(--bd)' }}>
-                    <span className="text-xs font-semibold" style={{ color: 'var(--tx2)' }}>{k}</span>
-                    <span className="text-xs font-bold" style={{ color: 'var(--tx)' }}>{v}</span>
-                  </div>
-                ))}
-              </div>
+              {bankConfigured ? (
+                <dl className="well p-5 m-0">
+                  {[
+                    ['Bank', CONFIG.bank.name],
+                    ['Account name', CONFIG.bank.accountName],
+                    ['Account number', CONFIG.bank.accountNumber],
+                    ['Amount', fmt(subtotal)],
+                  ].map(([key, value], i, arr) => (
+                    <div
+                      key={key}
+                      className="flex justify-between items-center gap-4 py-2.5"
+                      style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none' }}
+                    >
+                      <dt className="text-sm text-ink-2">{key}</dt>
+                      <dd className="numeric text-sm font-semibold m-0 text-right">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+                <div className="well p-5" style={{ borderColor: 'var(--bad)' }}>
+                  <p className="text-sm" style={{ color: 'var(--bad)' }}>
+                    Bank details are not configured. Set VITE_BANK_NAME, VITE_BANK_ACCOUNT_NAME and
+                    VITE_BANK_ACCOUNT_NUMBER in your environment.
+                  </p>
+                </div>
+              )}
 
-              {/* Receipt upload */}
-              <div>
-                <label className="label">Upload Payment Receipt</label>
+              <div className="mt-6">
+                <span className="label">Payment receipt</span>
                 <label
-                  className="flex flex-col items-center justify-center gap-2 rounded-xl py-8 transition-colors"
+                  className="flex flex-col items-center justify-center gap-2 py-9 px-4 text-center cursor-pointer"
                   style={{
-                    border: `2px dashed ${receiptFile ? 'var(--gold)' : 'var(--bd)'}`,
-                    background: receiptFile ? 'var(--goldl)' : 'var(--surf2)',
+                    border: `1.5px dashed ${receipt ? 'var(--clay)' : 'var(--line-strong)'}`,
+                    borderRadius: 'var(--r-md)',
+                    background: receipt ? 'var(--clay-wash)' : 'var(--surface-2)',
                   }}
                 >
-                  <span style={{ fontSize: 28 }}>{receiptFile ? '✅' : '📎'}</span>
-                  <span className="text-sm font-semibold" style={{ color: 'var(--tx)' }}>
-                    {receiptFile ? receiptFile.name : 'Tap to upload receipt'}
+                  <Icon name={receipt ? 'check' : 'upload'} size={22} className={receipt ? 'text-clay' : 'text-ink-3'} />
+                  <span className="text-sm font-medium text-ink">
+                    {receipt ? receipt.name : 'Choose a file or take a photo'}
                   </span>
-                  <span className="text-xs" style={{ color: 'var(--tx2)' }}>JPG, PNG or PDF</span>
+                  <span className="help m-0">JPG, PNG, WebP or PDF · up to 5MB</span>
                   <input
                     type="file"
-                    accept="image/*,application/pdf"
-                    className="hidden"
-                    onChange={e => setReceipt(e.target.files[0])}
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    className="sr-only"
+                    onChange={(e) => pickReceipt(e.target.files?.[0])}
                   />
                 </label>
+                <p className="help">
+                  Your receipt is stored privately and is only ever seen by us.
+                </p>
               </div>
 
-              {error && <p className="text-sm mt-3" style={{ color: 'var(--pink)' }}>{error}</p>}
+              {error && (
+                <p className="error-text mt-4 flex items-start gap-2" role="alert">
+                  <Icon name="alert" size={16} style={{ marginTop: 2 }} />
+                  {error}
+                </p>
+              )}
 
               <button
-                className="btn-primary w-full mt-5"
-                onClick={handleSubmit}
-                disabled={submitting || !receiptFile}
-                style={{ opacity: submitting || !receiptFile ? 0.5 : 1 }}
+                type="button"
+                className="btn btn-primary btn-block mt-6"
+                onClick={submit}
+                disabled={submitting || !receipt || !bankConfigured}
               >
-                {submitting ? 'Placing order…' : 'Confirm Order'}
+                {submitting ? (
+                  <>
+                    <Icon name="spinner" size={17} className="animate-spin" />
+                    Placing your order…
+                  </>
+                ) : (
+                  'Place order'
+                )}
               </button>
             </div>
           )}
         </div>
 
-        {/* Order summary */}
-        <div className="md:col-span-2">
-          <div className="card p-5 sticky top-24">
-            <h3 className="font-semibold mb-4 text-sm" style={{ color: 'var(--tx)' }}>Order Summary</h3>
-            <div className="flex flex-col gap-3 mb-4">
-              {items.map(i => (
-                <div key={i.id} className="flex gap-3 items-center">
-                  <div
-                    className="flex-shrink-0 rounded-lg flex items-center justify-center text-base"
-                    style={{ width: 40, height: 40, background: 'var(--surf2)' }}
-                  >
-                    {i.images?.[0]
-                      ? <img src={i.images[0]} alt="" className="w-full h-full object-cover rounded-lg" />
-                      : '📿'
-                    }
+        {/* ── Summary ───────────────────────────────────────────────────────── */}
+        <aside className="lg:col-span-5">
+          <div className="card p-6 lg:sticky" style={{ top: 88 }}>
+            <h2 className="h3 mb-5">Your order</h2>
+
+            <ul className="list-none p-0 m-0 flex flex-col gap-4">
+              {items.map((item) => (
+                <li key={item.id} className="flex gap-3 items-center">
+                  <div className="frame frame-square flex-shrink-0" style={{ width: 46 }}>
+                    {item.image ? (
+                      <img src={item.image} alt="" loading="lazy" width="92" height="92" />
+                    ) : (
+                      <span className="absolute inset-0 flex items-center justify-center opacity-40">
+                        <Mark size={18} />
+                      </span>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold truncate" style={{ color: 'var(--tx)' }}>{i.name}</p>
-                    <p className="text-xs" style={{ color: 'var(--tx2)' }}>×{i.qty}</p>
+                    <p className="text-sm font-medium truncate">{item.name}</p>
+                    <p className="meta numeric">× {item.qty}</p>
                   </div>
-                  <p className="text-xs font-bold flex-shrink-0" style={{ color: 'var(--tx)' }}>{fmt(i.price * i.qty)}</p>
-                </div>
+                  <p className="numeric text-sm font-semibold">{fmt(item.price * item.qty)}</p>
+                </li>
               ))}
+            </ul>
+
+            <hr className="hairline my-5" />
+
+            <div className="flex justify-between text-sm py-1">
+              <span className="text-ink-2">Subtotal</span>
+              <span className="numeric font-semibold">{fmt(subtotal)}</span>
             </div>
-            <div className="pt-3" style={{ borderTop: '1px solid var(--bd)' }}>
-              <div className="flex justify-between mb-1">
-                <span className="text-xs" style={{ color: 'var(--tx2)' }}>Delivery</span>
-                <span className="text-xs" style={{ color: 'var(--tx2)' }}>TBD</span>
-              </div>
-              <div className="flex justify-between mt-2">
-                <span className="text-sm font-bold" style={{ color: 'var(--tx)' }}>Total</span>
-                <span className="font-serif text-lg font-bold" style={{ color: 'var(--tx)' }}>{fmt(total)}</span>
-              </div>
+            <div className="flex justify-between text-sm py-1">
+              <span className="text-ink-2">Delivery</span>
+              <span className="text-ink-3">Arranged after confirmation</span>
+            </div>
+
+            <hr className="hairline my-4" />
+
+            <div className="flex justify-between items-baseline">
+              <span className="font-semibold">Total</span>
+              <span className="numeric font-display" style={{ fontSize: '1.5rem', fontWeight: 500 }}>
+                {fmt(subtotal)}
+              </span>
             </div>
           </div>
-        </div>
+        </aside>
       </div>
     </div>
   )

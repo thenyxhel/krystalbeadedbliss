@@ -1,95 +1,110 @@
-import { useLocation, Link } from 'react-router-dom'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import { whatsappLink } from '../lib/config'
+import { useSeo } from '../lib/useSeo'
 import { fmt } from '../lib/utils'
-import BeadDivider from '../components/BeadDivider'
-import { useToast, ToastContainer } from '../components/Toast'
+import { useToast } from '../components/Toast'
+import Icon from '../components/Icon'
+import Rule from '../components/Rule'
 
 export default function OrderConfirmationPage() {
   const { state } = useLocation()
-  const { toasts, toast } = useToast()
+  const { toast } = useToast()
 
+  useSeo({ title: 'Order placed', noindex: true })
+
+  // Arriving here directly (a refresh, a bookmark) means there is no order in
+  // history to show. Send them somewhere useful rather than rendering a page
+  // about an order that does not exist.
   if (!state?.orderNumber) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4">
-        <p className="font-serif text-2xl" style={{ color: 'var(--tx)' }}>No order found</p>
-        <Link to="/" className="btn-primary">Go Home</Link>
-      </div>
-    )
+    return <Navigate to="/track" replace />
   }
 
   const { orderNumber, isCustom, customerName, total, estimatedPrice, summary } = state
+  const firstName = customerName?.trim().split(/\s+/)[0]
 
-  const waMessage = isCustom
-    ? `Hi! I just placed a custom order — Order #${orderNumber}. Piece: ${summary?.pieceType}, Bead: ${summary?.beadType}, Colour: ${summary?.color}. Please confirm.`
-    : `Hi! I just placed order #${orderNumber} for ${fmt(total)}. Please confirm receipt.`
+  // The custom summary used to read `summary.beadType`, singular, while the
+  // builder wrote `beadTypes`, an array — so every custom order's WhatsApp
+  // message said "Bead: undefined".
+  const beads = Array.isArray(summary?.beadTypes) ? summary.beadTypes.join(', ') : null
 
-  const copyOrderNumber = () => {
-    navigator.clipboard.writeText(orderNumber)
-    toast('Order number copied!')
+  const message = isCustom
+    ? `Hi! I just placed custom order ${orderNumber}.` +
+      (summary?.pieceType ? ` Piece: ${summary.pieceType}.` : '') +
+      (beads ? ` Beads: ${beads}.` : '') +
+      (summary?.color ? ` Colour: ${summary.color}.` : '') +
+      ' Please confirm the details.'
+    : `Hi! I just placed order ${orderNumber} for ${fmt(total)} and uploaded my receipt. Please confirm.`
+
+  const wa = whatsappLink(message)
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(orderNumber)
+      toast('Order number copied.')
+    } catch {
+      toast('Could not copy — please write it down.', 'warn')
+    }
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-6 pb-24 text-center">
-      <ToastContainer toasts={toasts} />
+    <div className="page-narrow py-14 text-center">
+      <span
+        className="inline-flex items-center justify-center mb-6"
+        style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--clay-wash)' }}
+      >
+        <Icon name="check" size={26} className="text-clay" />
+      </span>
 
-      <div className="pt-8 pb-6">
-        <div className="text-5xl mb-4">🎉</div>
-        <p className="section-eyebrow mb-2">Order placed</p>
-        <h1 className="font-serif text-4xl font-semibold mb-3" style={{ color: 'var(--tx)' }}>
-          Thank you{customerName ? `, ${customerName.split(' ')[0]}` : ''}!
-        </h1>
-        <p className="text-sm leading-relaxed" style={{ color: 'var(--tx2)' }}>
-          {isCustom
-            ? 'Your custom order has been received. We\'ll reach out via WhatsApp to confirm the details and finalise pricing before production begins.'
-            : 'Your order has been placed. We\'ll confirm via WhatsApp once we\'ve verified your payment.'}
-        </p>
-      </div>
+      <p className="eyebrow mb-3">Order placed</p>
+      <h1 className="h1">{firstName ? `Thank you, ${firstName}.` : 'Thank you.'}</h1>
 
-      <BeadDivider className="my-6" />
+      <p className="text-ink-2 mt-4 mx-auto" style={{ maxWidth: '46ch' }}>
+        {isCustom
+          ? 'We have your design. We will message you on WhatsApp to confirm the details and the final price before anything is made.'
+          : 'We have your order and your receipt. We will confirm on WhatsApp as soon as the payment is verified.'}
+      </p>
 
-      {/* Order number */}
-      <div className="card p-6 mb-6">
-        <p className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--tx2)' }}>Your order number</p>
-        <div className="flex items-center justify-center gap-2">
-          <p className="font-serif text-3xl font-bold" style={{ color: 'var(--gold)' }}>{orderNumber}</p>
-          <button
-            onClick={copyOrderNumber}
-            title="Copy order number"
-            style={{ background: 'var(--surf2)', border: '1px solid var(--bd)', borderRadius: 8, padding: 6, color: 'var(--tx)' }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="9" y="9" width="13" height="13" rx="2"/>
-              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-            </svg>
+      <Rule className="my-10" />
+
+      <div className="card p-7">
+        <p className="eyebrow mb-3">Your order number</p>
+        <div className="flex items-center justify-center gap-3">
+          <p className="numeric font-display" style={{ fontSize: '2rem', fontWeight: 500, color: 'var(--brass)' }}>
+            {orderNumber}
+          </p>
+          <button type="button" onClick={copy} className="btn btn-ghost btn-sm" style={{ padding: '0.5rem' }} aria-label="Copy order number">
+            <Icon name="copy" size={17} />
           </button>
         </div>
-        <p className="text-xs mt-2" style={{ color: 'var(--tx2)' }}>Keep this safe — you'll need it to track your order.</p>
+        <p className="help mt-2">Keep this — it is how you track the order.</p>
 
-        {isCustom && estimatedPrice && (
-          <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--bd)' }}>
-            <p className="text-xs" style={{ color: 'var(--tx2)' }}>Estimated price</p>
-            <p className="font-serif text-2xl font-bold mt-0.5" style={{ color: 'var(--tx)' }}>{fmt(estimatedPrice)}</p>
-          </div>
-        )}
-        {!isCustom && total && (
-          <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--bd)' }}>
-            <p className="text-xs" style={{ color: 'var(--tx2)' }}>Total paid</p>
-            <p className="font-serif text-2xl font-bold mt-0.5" style={{ color: 'var(--tx)' }}>{fmt(total)}</p>
-          </div>
+        {(total != null || estimatedPrice != null) && (
+          <>
+            <hr className="hairline my-5" />
+            <p className="eyebrow mb-1.5">{isCustom ? 'Estimated price' : 'Total'}</p>
+            <p className="numeric font-display" style={{ fontSize: '1.5rem', fontWeight: 500 }}>
+              {fmt(isCustom ? estimatedPrice : total)}
+            </p>
+            {isCustom && <p className="help mt-1">Confirmed with you before we begin.</p>}
+          </>
         )}
       </div>
 
-      <div className="flex flex-col gap-3">
-        <a href={whatsappLink(waMessage)} target="_blank" rel="noreferrer" className="btn-primary w-full">
-          Contact us on WhatsApp
-        </a>
-        <Link to="/track" className="btn-outline w-full">
-          Track this Order
-        </Link>
-        <Link to="/shop" className="btn-primary w-full">
-          Continue Shopping
+      <div className="flex flex-col sm:flex-row gap-2.5 mt-7">
+        {wa && (
+          <a href={wa} target="_blank" rel="noreferrer" className="btn btn-primary flex-1 no-underline">
+            <Icon name="whatsapp" size={17} />
+            Message us on WhatsApp
+          </a>
+        )}
+        <Link to="/track" className="btn btn-outline flex-1 no-underline">
+          Track this order
         </Link>
       </div>
+
+      <Link to="/shop" className="btn btn-ghost mt-3 no-underline">
+        Keep shopping
+      </Link>
     </div>
   )
 }

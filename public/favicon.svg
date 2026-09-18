@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Krystal Beaded Bliss">
+  <style>
+    .thread { stroke: #B4552F; }
+    .bead-a { fill: #B4552F; }
+    .bead-b { fill: #7A6231; }
+    .bead-c { fill: #4F5C43; }
+    @media (prefers-color-scheme: dark) {
+      .thread { stroke: #E07A4E; }
+      .bead-a { fill: #E07A4E; }
+      .bead-b { fill: #D9B368; }
+      .bead-c { fill: #9DAB8E; }
+    }
+  </style>
+  <path class="thread" d="M4 11a12 12 0 0 0 24 0" fill="none" stroke-width="1.25" stroke-linecap="round" opacity="0.55"/>
+  <circle class="bead-b" cx="5.6"  cy="12.4" r="2.2"/>
+  <circle class="bead-c" cx="10.4" cy="17.6" r="2.8"/>
+  <circle class="bead-a" cx="16"   cy="19.6" r="3.6"/>
+  <circle class="bead-c" cx="21.6" cy="17.6" r="2.8"/>
+  <circle class="bead-b" cx="26.4" cy="12.4" r="2.2"/>
+</svg>

@@ -1,19 +1,50 @@
+const env = import.meta.env
+
 export const CONFIG = {
-  whatsapp:    import.meta.env.VITE_WHATSAPP_NUMBER,
+  name:    'Krystal Beaded Bliss',
+  tagline: 'Hand-strung in Lagos',
+  city:    'Lagos, Nigeria',
+
+  whatsapp: env.VITE_WHATSAPP_NUMBER,
+  instagram: env.VITE_INSTAGRAM_URL || null,
+
   bank: {
-    name:          import.meta.env.VITE_BANK_NAME,
-    accountName:   import.meta.env.VITE_BANK_ACCOUNT_NAME,
-    accountNumber: import.meta.env.VITE_BANK_ACCOUNT_NUMBER,
+    name:          env.VITE_BANK_NAME,
+    accountName:   env.VITE_BANK_ACCOUNT_NAME,
+    accountNumber: env.VITE_BANK_ACCOUNT_NUMBER,
   },
-  adminEmail:   import.meta.env.VITE_ADMIN_EMAIL,
-  sweetSoiree:  import.meta.env.VITE_SWEET_SOIREE_URL || 'https://thesweetsoiree.vercel.app',
+
+  sisterStore: {
+    name: 'The Sweet Soirée',
+    url:  env.VITE_SWEET_SOIREE_URL || 'https://thesweetsoiree.vercel.app',
+  },
+
   delivery: {
-    fee: 0,
-    note: 'Delivery is free — arranged after order confirmation.',
+    note: 'Delivery is arranged with you directly once your order is confirmed.',
   },
-  categories: ['bracelet', 'necklace', 'earrings', 'set'],
+
+  // Category is the one taxonomy the whole app shares. The database CHECK
+  // constraint must stay in step with this list.
+  categories: [
+    { key: 'bracelet', label: 'Bracelets', singular: 'Bracelet' },
+    { key: 'necklace', label: 'Necklaces', singular: 'Necklace' },
+    { key: 'earrings', label: 'Earrings',  singular: 'Earrings' },
+    { key: 'set',      label: 'Sets',      singular: 'Set' },
+  ],
+
   orderStatuses: ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'],
 }
 
-export const whatsappLink = (message) =>
-  `https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(message)}`
+export const categoryLabel = (key) =>
+  CONFIG.categories.find((c) => c.key === key)?.singular ?? key
+
+export const whatsappLink = (message) => {
+  if (!CONFIG.whatsapp) return null
+  const digits = String(CONFIG.whatsapp).replace(/\D/g, '')
+  return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`
+}
+
+/** True when the bank block is fully configured — checkout depends on it. */
+export const bankConfigured = Boolean(
+  CONFIG.bank.name && CONFIG.bank.accountName && CONFIG.bank.accountNumber
+)

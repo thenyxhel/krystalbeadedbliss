@@ -1,102 +1,111 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { ADMIN_BASE } from '../../lib/adminPath'
+import { useSeo } from '../../lib/useSeo'
+import { Mark } from '../../components/Brand'
+import Icon from '../../components/Icon'
 
 const NAV = [
-  { to: ADMIN_BASE,                  label: 'Dashboard',     icon: '◈', end: true },
-  { to: `${ADMIN_BASE}/products`,    label: 'Products',      icon: '◎' },
-  { to: `${ADMIN_BASE}/orders`,      label: 'Orders',        icon: '◷' },
-  { to: `${ADMIN_BASE}/reviews`,     label: 'Reviews',       icon: '★' },
-  { to: `${ADMIN_BASE}/complaints`,  label: 'Complaints',    icon: '◌' },
-  { to: `${ADMIN_BASE}/custom`,      label: 'Builder Config', icon: '◉' },
+  { to: '/admin', label: 'Dashboard', icon: 'grid', end: true },
+  { to: '/admin/products', label: 'Products', icon: 'package' },
+  { to: '/admin/orders', label: 'Orders', icon: 'truck' },
+  { to: '/admin/reviews', label: 'Reviews', icon: 'star' },
+  { to: '/admin/complaints', label: 'Complaints', icon: 'chat' },
+  { to: '/admin/custom', label: 'Builder options', icon: 'sliders' },
 ]
 
-export default function AdminLayout() {
-  const nav = useNavigate()
+const linkStyle = ({ isActive }) => ({
+  background: isActive ? 'var(--surface-2)' : 'transparent',
+  color: isActive ? 'var(--ink)' : 'var(--ink-2)',
+  borderLeft: `2px solid ${isActive ? 'var(--clay)' : 'transparent'}`,
+})
 
-  const logout = async () => {
+export default function AdminLayout() {
+  const navigate = useNavigate()
+
+  useSeo({ title: 'Admin', noindex: true })
+
+  const signOut = async () => {
     await supabase.auth.signOut()
-    nav('/')   // back to the public site, not the admin login
+    navigate('/', { replace: true })
   }
 
   return (
-    <div className="min-h-screen flex" style={{ background: 'var(--bg)' }}>
-      {/* Sidebar */}
+    <div className="min-h-screen md:flex" style={{ background: 'var(--bg)' }}>
       <aside
-        className="hidden md:flex flex-col w-56 flex-shrink-0"
+        className="hidden md:flex flex-col flex-shrink-0"
         style={{
-          background: 'var(--surf)',
-          borderRight: '1px solid var(--bd)',
-          position: 'sticky', top: 0, height: '100vh',
+          width: 226,
+          background: 'var(--surface)',
+          borderRight: '1px solid var(--line)',
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
         }}
       >
-        <div className="px-5 py-6" style={{ borderBottom: '1px solid var(--bd)' }}>
-          <p className="font-serif text-base font-semibold" style={{ color: 'var(--tx)' }}>Krystal</p>
-          <p className="text-xs tracking-widest uppercase" style={{ color: 'var(--lavender)', fontSize: 9 }}>Admin Panel</p>
+        <div className="px-5 py-5" style={{ borderBottom: '1px solid var(--line)' }}>
+          <Mark size={24} />
+          <p className="eyebrow mt-3">Admin</p>
         </div>
 
-        <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
-          {NAV.map(n => (
+        <nav className="flex-1 py-3" aria-label="Admin sections">
+          {NAV.map((item) => (
             <NavLink
-              key={n.to}
-              to={n.to}
-              end={n.end}
-              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all no-underline"
-              style={({ isActive }) => ({
-                background: isActive ? 'rgba(45,27,105,0.08)' : 'transparent',
-                color: isActive ? 'var(--purple)' : 'var(--tx2)',
-              })}
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className="flex items-center gap-3 px-5 py-2.5 text-sm font-medium no-underline transition-colors"
+              style={linkStyle}
             >
-              <span style={{ fontSize: 16 }}>{n.icon}</span>
-              {n.label}
+              <Icon name={item.icon} size={17} />
+              {item.label}
             </NavLink>
           ))}
         </nav>
 
-        <div className="px-3 pb-5">
-          <button
-            onClick={logout}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors"
-            style={{ color: 'var(--tx2)', background: 'none', border: 'none', textAlign: 'left' }}
-            onMouseEnter={e => e.currentTarget.style.color = 'var(--pink)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'var(--tx2)'}
-          >
-            <span style={{ fontSize: 16 }}>→</span> Sign Out
+        <div className="p-3" style={{ borderTop: '1px solid var(--line)' }}>
+          <a href="/" className="btn btn-ghost btn-sm btn-block no-underline justify-start">
+            <Icon name="arrowLeft" size={15} />
+            View the shop
+          </a>
+          <button type="button" onClick={signOut} className="btn btn-ghost btn-sm btn-block justify-start">
+            <Icon name="logout" size={15} />
+            Sign out
           </button>
         </div>
       </aside>
 
-      {/* Mobile topbar */}
+      {/* Mobile: a scrolling tab strip, not a cramped row that clips. */}
       <div
-        className="md:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4"
-        style={{ height: 56, background: 'var(--surf)', borderBottom: '1px solid var(--bd)' }}
+        className="md:hidden sticky top-0 z-40"
+        style={{ background: 'var(--surface)', borderBottom: '1px solid var(--line)' }}
       >
-        <p className="font-serif text-sm font-semibold" style={{ color: 'var(--tx)' }}>Admin</p>
-        <div className="flex gap-2 overflow-x-auto">
-          {NAV.map(n => (
+        <div className="flex items-center justify-between px-4 py-3">
+          <Mark size={22} />
+          <button type="button" onClick={signOut} className="btn btn-ghost btn-sm">
+            <Icon name="logout" size={15} />
+            Sign out
+          </button>
+        </div>
+        <nav className="flex gap-1 px-2 pb-2 overflow-x-auto" aria-label="Admin sections">
+          {NAV.map((item) => (
             <NavLink
-              key={n.to}
-              to={n.to}
-              end={n.end}
-              className="text-xs px-2 py-1 rounded-lg no-underline whitespace-nowrap"
-              style={({ isActive }) => ({
-                background: isActive ? 'rgba(45,27,105,0.08)' : 'transparent',
-                color: isActive ? 'var(--purple)' : 'var(--tx2)',
-              })}
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className="chip flex-shrink-0 no-underline"
+              style={({ isActive }) =>
+                isActive
+                  ? { background: 'var(--ink)', borderColor: 'var(--ink)', color: 'var(--bg)' }
+                  : undefined
+              }
             >
-              {n.label}
+              {item.label}
             </NavLink>
           ))}
-        </div>
-        <button
-          onClick={logout}
-          style={{ background: 'none', border: 'none', color: 'var(--tx2)', fontSize: 12 }}
-        >
-          Out
-        </button>
+        </nav>
       </div>
 
-      <main className="flex-1 min-w-0 p-6 md:p-8 mt-14 md:mt-0">
+      <main className="flex-1 min-w-0 p-5 md:p-8">
         <Outlet />
       </main>
     </div>

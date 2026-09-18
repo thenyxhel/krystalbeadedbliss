@@ -1,187 +1,194 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { useToast, ToastContainer } from '../../components/Toast'
+import { formatDate, friendlyError, statusMeta } from '../../lib/utils'
+import { useToast } from '../../components/Toast'
+import Icon from '../../components/Icon'
 
-const STATUS_COLORS = { open: '#EAB308', in_review: '#3B82F6', resolved: '#22C55E' }
+const FILTERS = ['open', 'in_review', 'resolved', 'all']
 
 export default function AdminComplaints() {
-  const { toasts, toast } = useToast()
+  const { toast } = useToast()
+
+  const [filter, setFilter] = useState('open')
   const [complaints, setComplaints] = useState([])
-  const [loading, setLoad]          = useState(true)
-  const [selected, setSelected]     = useState(null)
-  const [response, setResponse]     = useState('')
-  const [filter, setFilter]         = useState('all')
-  const [saving, setSaving]         = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [selected, setSelected] = useState(null)
+  const [response, setResponse] = useState('')
+  const [saving, setSaving] = useState(false)
 
   const load = async () => {
-    setLoad(true)
-    let q = supabase.from('complaints').select('*').order('created_at', { ascending: false })
-    if (filter !== 'all') q = q.eq('status', filter)
-    const { data } = await q
-    setComplaints(data || [])
-    setLoad(false)
+    setLoading(true)
+    let query = supabase.from('complaints').select('*').order('created_at', { ascending: false }).limit(200)
+    if (filter !== 'all') query = query.eq('status', filter)
+
+    const { data, error } = await query
+    if (error) toast(friendlyError(error, 'Could not load complaints.'), 'bad')
+    setComplaints(data ?? [])
+    setLoading(false)
   }
 
-  useEffect(() => { load() }, [filter])
+  useEffect(() => {
+    setSelected(null)
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter])
 
-  const open = (c) => { setSelected(c); setResponse(c.admin_response || '') }
+  useEffect(() => {
+    setResponse(selected?.admin_response ?? '')
+  }, [selected])
 
-  const handleSave = async (status) => {
+  const save = async (status) => {
     setSaving(true)
-    const { error } = await supabase.from('complaints')
-      .update({ status, admin_response: response || null })
+    const { error } = await supabase
+      .from('complaints')
+      .update({ status, admin_response: response.trim() || null })
       .eq('id', selected.id)
     setSaving(false)
-    if (error) toast(error.message, 'error')
-    else { toast('Complaint updated!'); load(); setSelected(s => ({ ...s, status, admin_response: response })) }
+
+    if (error) {
+      toast(friendlyError(error, 'Could not save.'), 'bad')
+      return
+    }
+    toast('Complaint updated.')
+    setSelected((s) => ({ ...s, status, admin_response: response.trim() || null }))
+    load()
   }
 
   return (
     <div>
-      <ToastContainer toasts={toasts} />
+      <header className="mb-7">
+        <p className="eyebrow mb-2">Support</p>
+        <h1 className="h1">Complaints</h1>
+      </header>
 
-      <div className="mb-8">
-        <p className="section-eyebrow">Support</p>
-        <h1 className="section-title">Complaints</h1>
-      </div>
-
-      {/* Filter */}
-      <div className="flex gap-2 flex-wrap mb-6">
-        {['all', 'open', 'in_review', 'resolved'].map(s => (
-          <button
-            key={s}
-            onClick={() => setFilter(s)}
-            className="px-3 py-1.5 rounded-full text-xs font-semibold capitalize transition-all"
-            style={{
-              background: filter === s ? (STATUS_COLORS[s] || 'var(--gold)') : 'var(--surf)',
-              color:      filter === s ? 'white' : 'var(--tx2)',
-              border: '1px solid var(--bd)',
-            }}
-          >
-            {s === 'all' ? 'All' : s.replace('_', ' ')}
+      <div className="flex gap-2 flex-wrap mb-6" role="group" aria-label="Filter complaints">
+        {FILTERS.map((f) => (
+          <button key={f} type="button" className="chip" aria-pressed={filter === f} onClick={() => setFilter(f)}>
+            {f === 'all' ? 'Everything' : statusMeta(f).label}
           </button>
         ))}
       </div>
 
-      <div className="grid md:grid-cols-5 gap-6">
-        {/* List */}
-        <div className="md:col-span-2 card overflow-hidden">
+      <div className="grid lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-5 card overflow-hidden">
           {loading ? (
-            <p className="p-5 text-sm" style={{ color: 'var(--tx2)' }}>Loading…</p>
+            <p className="p-5 text-sm text-ink-3">Loading…</p>
           ) : complaints.length === 0 ? (
-            <p className="p-5 text-sm" style={{ color: 'var(--tx2)' }}>No complaints found.</p>
-          ) : complaints.map((c, i) => (
-            <button
-              key={c.id}
-              onClick={() => open(c)}
-              className="w-full text-left p-4 transition-colors"
-              style={{
-                borderBottom: i < complaints.length - 1 ? '1px solid var(--bd)' : 'none',
-                background: selected?.id === c.id ? 'var(--goldl)' : 'transparent',
-                border: 'none', display: 'block',
-              }}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-mono text-xs font-bold" style={{ color: 'var(--gold)' }}>{c.order_number}</span>
-                <span
-                  className="text-xs font-bold px-2 py-0.5 rounded-full text-white capitalize"
-                  style={{ background: STATUS_COLORS[c.status] || '#555' }}
-                >
-                  {c.status.replace('_', ' ')}
-                </span>
-              </div>
-              <p className="text-sm font-semibold" style={{ color: 'var(--tx)' }}>{c.customer_name}</p>
-              <p className="text-xs mt-0.5 truncate" style={{ color: 'var(--tx2)' }}>{c.message}</p>
-              <p className="text-xs mt-1" style={{ color: 'var(--tx2)' }}>
-                {new Date(c.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' })}
-              </p>
-            </button>
-          ))}
+            <p className="p-5 text-sm text-ink-3">
+              {filter === 'open' ? 'No open complaints. Good day.' : 'Nothing here.'}
+            </p>
+          ) : (
+            <ul className="list-none p-0 m-0" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+              {complaints.map((c, i) => {
+                const meta = statusMeta(c.status)
+                const active = selected?.id === c.id
+                return (
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelected(c)}
+                      aria-current={active}
+                      className="w-full text-left px-5 py-4"
+                      style={{
+                        background: active ? 'var(--surface-2)' : 'transparent',
+                        border: 'none',
+                        borderBottom: i < complaints.length - 1 ? '1px solid var(--line)' : undefined,
+                        borderLeft: `2px solid ${active ? 'var(--clay)' : 'transparent'}`,
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="numeric text-sm font-semibold" style={{ color: 'var(--brass)' }}>
+                          {c.order_number}
+                        </span>
+                        <span className={`badge badge-${meta.tone}`}>{meta.label}</span>
+                      </div>
+                      <p className="text-sm mt-1.5">{c.customer_name}</p>
+                      <p className="meta mt-0.5 line-clamp-1">{c.message}</p>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
         </div>
 
-        {/* Detail */}
-        <div className="md:col-span-3">
+        <div className="lg:col-span-7">
           {!selected ? (
-            <div className="card p-8 text-center">
-              <p className="text-sm" style={{ color: 'var(--tx2)' }}>Select a complaint to view and respond.</p>
+            <div className="card p-10 text-center">
+              <Icon name="chat" size={26} className="mx-auto text-ink-3" />
+              <p className="text-sm text-ink-3 mt-3">Choose a complaint to read it.</p>
             </div>
           ) : (
             <div className="card p-6">
-              <div className="flex items-start justify-between mb-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <p className="font-mono text-lg font-bold" style={{ color: 'var(--gold)' }}>{selected.order_number}</p>
-                  <p className="text-sm" style={{ color: 'var(--tx2)' }}>
-                    {new Date(selected.created_at).toLocaleString('en-NG')}
+                  <p className="eyebrow mb-1">Order</p>
+                  <p className="numeric font-display" style={{ fontSize: '1.375rem', fontWeight: 500, color: 'var(--brass)' }}>
+                    {selected.order_number}
                   </p>
                 </div>
-                <span
-                  className="text-xs font-bold px-3 py-1.5 rounded-full text-white capitalize"
-                  style={{ background: STATUS_COLORS[selected.status] || '#555' }}
-                >
-                  {selected.status.replace('_', ' ')}
+                <span className={`badge badge-${statusMeta(selected.status).tone}`}>
+                  {statusMeta(selected.status).label}
                 </span>
               </div>
 
-              {/* Customer */}
-              <div className="rounded-xl p-4 mb-4" style={{ background: 'var(--surf2)' }}>
-                {[['Name', selected.customer_name], ['Email', selected.email]].map(([k, v]) => (
-                  <div key={k} className="flex justify-between py-1.5" style={{ borderBottom: '1px solid var(--bd)' }}>
-                    <span className="text-xs" style={{ color: 'var(--tx2)' }}>{k}</span>
-                    <span className="text-xs font-semibold" style={{ color: 'var(--tx)' }}>{v}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Message */}
-              <div className="mb-5">
-                <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--tx2)' }}>
-                  Customer's Message
-                </p>
-                <div className="rounded-xl p-4" style={{ background: 'var(--surf2)' }}>
-                  <p className="text-sm leading-relaxed" style={{ color: 'var(--tx)' }}>{selected.message}</p>
+              <div className="grid sm:grid-cols-2 gap-x-6 gap-y-3 mt-5 text-sm">
+                <div>
+                  <p className="eyebrow" style={{ fontSize: '0.625rem' }}>
+                    From
+                  </p>
+                  <p>{selected.customer_name}</p>
+                </div>
+                <div>
+                  <p className="eyebrow" style={{ fontSize: '0.625rem' }}>
+                    Email
+                  </p>
+                  <a href={`mailto:${selected.email}`} className="link no-underline break-words">
+                    {selected.email}
+                  </a>
                 </div>
               </div>
 
-              {/* Response */}
-              <div className="mb-5">
-                <label className="label">Your Response (optional)</label>
-                <textarea
-                  className="input resize-none"
-                  rows={4}
-                  placeholder="Write a response to the customer…"
-                  value={response}
-                  onChange={e => setResponse(e.target.value)}
-                />
-              </div>
+              <hr className="hairline my-5" />
 
-              {/* Actions */}
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => handleSave('in_review')}
-                  disabled={saving}
-                  className="text-xs font-bold px-3 py-2 rounded-full text-white"
-                  style={{ background: STATUS_COLORS.in_review, border: 'none' }}
-                >
-                  Mark In Review
+              <p className="label">What they said</p>
+              <div className="well p-4">
+                <p className="text-sm" style={{ whiteSpace: 'pre-wrap' }}>
+                  {selected.message}
+                </p>
+              </div>
+              <p className="meta mt-2">Received {formatDate(selected.created_at, { weekday: 'short' })}</p>
+
+              <hr className="hairline my-5" />
+
+              <label className="label" htmlFor="response">
+                Internal notes / your response
+              </label>
+              <textarea
+                id="response"
+                className="field"
+                rows={4}
+                style={{ resize: 'vertical' }}
+                placeholder="What you did about it, what you told them…"
+                value={response}
+                onChange={(e) => setResponse(e.target.value)}
+              />
+              <p className="help">
+                This is not emailed automatically — reply to them directly, then record it here.
+              </p>
+
+              <div className="flex gap-2 flex-wrap mt-5">
+                <button type="button" className="btn btn-outline btn-sm" disabled={saving} onClick={() => save('in_review')}>
+                  Mark in review
                 </button>
-                <button
-                  onClick={() => handleSave('resolved')}
-                  disabled={saving}
-                  className="text-xs font-bold px-3 py-2 rounded-full text-white"
-                  style={{ background: STATUS_COLORS.resolved, border: 'none' }}
-                >
-                  Mark Resolved
+                <button type="button" className="btn btn-primary btn-sm" disabled={saving} onClick={() => save('resolved')}>
+                  <Icon name="check" size={14} />
+                  Mark resolved
                 </button>
-                {response && (
-                  <button
-                    onClick={() => handleSave(selected.status)}
-                    disabled={saving}
-                    className="text-xs font-bold px-3 py-2 rounded-full"
-                    style={{ background: 'var(--surf2)', color: 'var(--tx)', border: 'none' }}
-                  >
-                    Save Response
-                  </button>
-                )}
+                <a href={`mailto:${selected.email}?subject=Your order ${selected.order_number}`} className="btn btn-ghost btn-sm no-underline">
+                  <Icon name="mail" size={15} />
+                  Email them
+                </a>
               </div>
             </div>
           )}

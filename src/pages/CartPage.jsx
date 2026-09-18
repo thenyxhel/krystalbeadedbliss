@@ -1,110 +1,160 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
+import { useSeo } from '../lib/useSeo'
 import { fmt } from '../lib/utils'
+import { categoryLabel } from '../lib/config'
+import Icon from '../components/Icon'
+import { Mark } from '../components/Brand'
 
 export default function CartPage() {
-  const { items, remove, updateQty, total } = useCart()
-  const nav = useNavigate()
+  const { items, remove, updateQty, subtotal, count } = useCart()
+  const navigate = useNavigate()
+
+  useSeo({ title: 'Your cart', noindex: true })
 
   if (items.length === 0) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 px-6">
-        <p className="font-serif text-3xl" style={{ color: 'var(--tx)' }}>Your cart is empty</p>
-        <p className="text-sm" style={{ color: 'var(--tx2)' }}>Add some pieces and come back.</p>
-        <Link to="/shop" className="btn-primary mt-2">Browse Shop</Link>
+      <div className="page-narrow py-24 text-center">
+        <Mark size={44} className="mx-auto opacity-60" />
+        <h1 className="h1 mt-6">Your cart is empty.</h1>
+        <p className="text-ink-2 mt-3">Nothing in here yet — the collection is a good place to start.</p>
+        <div className="flex gap-2 justify-center mt-7">
+          <Link to="/shop" className="btn btn-primary no-underline">
+            Browse the collection
+          </Link>
+          <Link to="/custom" className="btn btn-outline no-underline">
+            Design your own
+          </Link>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-6 pb-24">
-      <div className="pt-4 pb-8">
-        <p className="section-eyebrow">Your selection</p>
-        <h1 className="section-title">Cart</h1>
-      </div>
+    <div className="page py-10">
+      <header className="mb-9">
+        <p className="eyebrow mb-2">Your selection</p>
+        <h1 className="h1">
+          Cart <span className="numeric text-ink-3">({count})</span>
+        </h1>
+      </header>
 
-      <div className="flex flex-col gap-3 mb-8">
-        {items.map(item => (
-          <div
-            key={item.id}
-            className="flex items-center gap-4 p-4 rounded-2xl"
-            style={{ background: 'var(--surf)', border: '1px solid var(--bd)' }}
-          >
-            {/* Image */}
-            <div
-              className="flex-shrink-0 rounded-xl overflow-hidden flex items-center justify-center"
-              style={{ width: 60, height: 60, background: 'var(--surf2)', flexShrink: 0 }}
+      <div className="grid lg:grid-cols-12 gap-10">
+        <ul className="lg:col-span-7 list-none p-0 m-0 flex flex-col">
+          {items.map((item, index) => (
+            <li
+              key={item.id}
+              className="flex gap-4 py-5"
+              style={{ borderTop: index === 0 ? '1px solid var(--line)' : 'none', borderBottom: '1px solid var(--line)' }}
             >
-              {item.images?.[0]
-                ? <img src={item.images[0]} alt={item.name} className="w-full h-full object-cover" />
-                : <span style={{ fontSize: 24 }}>📿</span>
-              }
-            </div>
-
-            {/* Info + controls */}
-            <div className="flex-1 min-w-0 flex flex-col gap-2">
-              <div>
-                <p className="text-sm font-semibold" style={{ color: 'var(--tx)' }}>{item.name}</p>
-                <p className="text-xs capitalize" style={{ color: 'var(--tx2)' }}>{item.category}</p>
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                {/* Qty */}
-                <div className="flex items-center rounded-xl overflow-hidden" style={{ border: '1px solid var(--bd)' }}>
-                  <button
-                    onClick={() => updateQty(item.id, item.qty - 1)}
-                    className="px-3 py-2 text-sm font-bold"
-                    style={{ background: 'var(--surf2)', color: 'var(--tx)', border: 'none' }}
-                  >−</button>
-                  <span className="px-3 py-2 text-sm font-semibold" style={{ color: 'var(--tx)', background: 'var(--surf)' }}>
-                    {item.qty}
+              <Link
+                to={`/product/${item.slug || item.id}`}
+                className="frame flex-shrink-0 no-underline"
+                style={{ width: 88 }}
+                aria-hidden="true"
+                tabIndex={-1}
+              >
+                {item.image ? (
+                  <img src={item.image} alt="" loading="lazy" decoding="async" width="176" height="220" />
+                ) : (
+                  <span className="absolute inset-0 flex items-center justify-center opacity-40">
+                    <Mark size={26} />
                   </span>
-                  <button
-                    onClick={() => updateQty(item.id, item.qty + 1)}
-                    className="px-3 py-2 text-sm font-bold"
-                    style={{ background: 'var(--surf2)', color: 'var(--tx)', border: 'none' }}
-                  >+</button>
-                </div>
-                {/* Subtotal + remove */}
-                <div className="text-right">
-                  <p className="font-serif text-base font-bold" style={{ color: 'var(--tx)' }}>
-                    {fmt(item.price * item.qty)}
-                  </p>
-                  <button
-                    onClick={() => remove(item.id)}
-                    className="text-xs transition-colors"
-                    style={{ background: 'none', border: 'none', color: 'var(--tx2)' }}
-                    onMouseEnter={e => e.target.style.color = 'var(--pink)'}
-                    onMouseLeave={e => e.target.style.color = 'var(--tx2)'}
-                  >
-                    Remove
-                  </button>
+                )}
+              </Link>
+
+              <div className="flex-1 min-w-0 flex flex-col">
+                <p className="eyebrow" style={{ fontSize: '0.625rem' }}>
+                  {categoryLabel(item.category)}
+                </p>
+                <h2 className="h3 mt-1">
+                  <Link to={`/product/${item.slug || item.id}`} className="no-underline text-ink hover:text-clay">
+                    {item.name}
+                  </Link>
+                </h2>
+                <p className="meta numeric mt-1">{fmt(item.price)} each</p>
+
+                <div className="mt-auto pt-3 flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center" style={{ border: '1px solid var(--line-strong)', borderRadius: 'var(--r-md)' }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      style={{ borderRadius: 0, padding: '0.375rem 0.625rem' }}
+                      onClick={() => updateQty(item.id, item.qty - 1)}
+                      aria-label={`Decrease quantity of ${item.name}`}
+                    >
+                      <Icon name="minus" size={15} />
+                    </button>
+                    <span className="numeric px-3 text-sm font-semibold">{item.qty}</span>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      style={{ borderRadius: 0, padding: '0.375rem 0.625rem' }}
+                      onClick={() => updateQty(item.id, item.qty + 1)}
+                      disabled={item.qty >= Math.min(20, item.stock)}
+                      aria-label={`Increase quantity of ${item.name}`}
+                    >
+                      <Icon name="plus" size={15} />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <p className="numeric font-display text-lg" style={{ fontWeight: 500 }}>
+                      {fmt(item.price * item.qty)}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => remove(item.id)}
+                      className="btn btn-ghost btn-sm text-ink-3"
+                      style={{ padding: '0.375rem' }}
+                      aria-label={`Remove ${item.name} from cart`}
+                    >
+                      <Icon name="trash" size={16} />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        ))}
-      </div>
+            </li>
+          ))}
+        </ul>
 
-      {/* Summary */}
-      <div className="card p-6">
-        <div className="flex justify-between mb-2">
-          <span className="text-sm" style={{ color: 'var(--tx2)' }}>Subtotal</span>
-          <span className="font-semibold text-sm" style={{ color: 'var(--tx)' }}>{fmt(total)}</span>
-        </div>
-        <div className="flex justify-between mb-4">
-          <span className="text-sm" style={{ color: 'var(--tx2)' }}>Delivery</span>
-          <span className="text-sm" style={{ color: 'var(--tx2)' }}>Arranged after order</span>
-        </div>
-        <div className="flex justify-between mb-6 pb-4" style={{ borderTop: '1px solid var(--bd)', paddingTop: 16 }}>
-          <span className="font-semibold" style={{ color: 'var(--tx)' }}>Total</span>
-          <span className="font-serif text-xl font-bold" style={{ color: 'var(--tx)' }}>{fmt(total)}</span>
-        </div>
-        <button className="btn-primary w-full" onClick={() => nav('/checkout')}>
-          Proceed to Checkout
-        </button>
-        <Link to="/shop" className="btn-outline w-full mt-2 text-center no-underline block">
-          Continue Shopping
-        </Link>
+        <aside className="lg:col-span-5">
+          <div className="card p-6 lg:sticky" style={{ top: 88 }}>
+            <h2 className="h3 mb-5">Summary</h2>
+
+            <div className="flex justify-between py-2 text-sm">
+              <span className="text-ink-2">Subtotal</span>
+              <span className="numeric font-semibold">{fmt(subtotal)}</span>
+            </div>
+            <div className="flex justify-between py-2 text-sm">
+              <span className="text-ink-2">Delivery</span>
+              <span className="text-ink-3">Arranged after confirmation</span>
+            </div>
+
+            <hr className="hairline my-4" />
+
+            <div className="flex justify-between items-baseline">
+              <span className="font-semibold">Total</span>
+              <span className="numeric font-display" style={{ fontSize: '1.5rem', fontWeight: 500 }}>
+                {fmt(subtotal)}
+              </span>
+            </div>
+
+            {/* Said plainly, because it is true: the figure above is what we
+                expect, and the server is what decides. */}
+            <p className="help mt-2">
+              Prices are confirmed against our stock when you place the order.
+            </p>
+
+            <button type="button" className="btn btn-primary btn-block mt-6" onClick={() => navigate('/checkout')}>
+              Checkout
+              <Icon name="arrowRight" size={17} />
+            </button>
+            <Link to="/shop" className="btn btn-ghost btn-block mt-2 no-underline">
+              Keep shopping
+            </Link>
+          </div>
+        </aside>
       </div>
     </div>
   )

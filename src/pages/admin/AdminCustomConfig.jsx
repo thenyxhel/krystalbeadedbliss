@@ -1,223 +1,291 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { fmt } from '../../lib/utils'
-import { useToast, ToastContainer } from '../../components/Toast'
+import { fmt, friendlyError } from '../../lib/utils'
+import { useToast } from '../../components/Toast'
+import Icon from '../../components/Icon'
+
+const PIECE_TYPES = ['bracelet', 'necklace', 'earrings']
 
 export default function AdminCustomConfig() {
-  const { toasts, toast } = useToast()
-  const [config, setConfig] = useState(null)
-  const [id, setId]         = useState(null)
+  const { toast } = useToast()
+
+  const [id, setId] = useState(null)
+  const [beadTypes, setBeadTypes] = useState([])
+  const [charmTypes, setCharmTypes] = useState([])
+  const [colors, setColors] = useState([])
+  const [basePrices, setBasePrices] = useState({})
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [tab, setTab]       = useState('beads') // beads | colors | charms | prices
 
   useEffect(() => {
-    supabase.from('custom_config').select('*').limit(1).single()
-      .then(({ data }) => { if (data) { setConfig(data); setId(data.id) } })
+    supabase
+      .from('custom_config')
+      .select('*')
+      .limit(1)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (error || !data) {
+          toast(friendlyError(error, 'Could not load the builder options.'), 'bad')
+          setLoading(false)
+          return
+        }
+        setId(data.id)
+        setBeadTypes(data.bead_types ?? [])
+        setCharmTypes(data.charm_types ?? [])
+        setColors(data.colors ?? [])
+        setBasePrices(data.base_prices ?? {})
+        setLoading(false)
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const save = async (patch) => {
+  const save = async () => {
     setSaving(true)
-    const merged = { ...config, ...patch }
-    const { error } = id
-      ? await supabase.from('custom_config').update(patch).eq('id', id)
-      : await supabase.from('custom_config').insert(merged).select().single().then(({ data, error }) => {
-          if (data) setId(data.id)
-          return { error }
-        })
+    const { error } = await supabase
+      .from('custom_config')
+      .update({
+        bead_types: beadTypes.filter((b) => b.name?.trim()),
+        charm_types: charmTypes.filter((c) => c.name?.trim()),
+        colors: colors.filter((c) => c.name?.trim()),
+        base_prices: basePrices,
+      })
+      .eq('id', id)
     setSaving(false)
-    if (error) toast(error.message, 'error')
-    else { setConfig(merged); toast('Saved!') }
+
+    if (error) toast(friendlyError(error, 'Could not save.'), 'bad')
+    else toast('Builder options saved.')
   }
 
-  if (!config) {
+  const patch = (setter, index, key, value) =>
+    setter((list) => list.map((item, i) => (i === index ? { ...item, [key]: value } : item)))
+
+  const removeAt = (setter, index) => setter((list) => list.filter((_, i) => i !== index))
+
+  if (loading) {
     return (
-      <div className="min-h-48 flex items-center justify-center">
-        <p className="text-sm" style={{ color: 'var(--tx2)' }}>Loading config…</p>
+      <div className="flex flex-col gap-4">
+        <div className="skeleton" style={{ height: 28, width: '40%' }} />
+        <div className="skeleton" style={{ height: 220 }} />
       </div>
     )
   }
 
   return (
     <div>
-      <ToastContainer toasts={toasts} />
-
-      <div className="mb-8">
-        <p className="section-eyebrow">Custom Builder</p>
-        <h1 className="section-title">Builder Config</h1>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-2 flex-wrap mb-6">
-        {[['beads', 'Bead Types'], ['colors', 'Colours'], ['charms', 'Charms'], ['prices', 'Base Prices']].map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className="px-4 py-2 rounded-full text-sm font-semibold transition-all"
-            style={{
-              background: tab === key ? 'var(--gold)' : 'var(--surf)',
-              color:      tab === key ? 'white'       : 'var(--tx2)',
-              border: '1px solid var(--bd)',
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Bead Types */}
-      {tab === 'beads' && (
-        <BeadEditor
-          items={config.bead_types || []}
-          onSave={items => save({ bead_types: items })}
-          saving={saving}
-        />
-      )}
-
-      {/* Colours */}
-      {tab === 'colors' && (
-        <ColorEditor
-          items={config.colors || []}
-          onSave={items => save({ colors: items })}
-          saving={saving}
-        />
-      )}
-
-      {/* Charms */}
-      {tab === 'charms' && (
-        <CharmEditor
-          items={config.charm_types || []}
-          onSave={items => save({ charm_types: items })}
-          saving={saving}
-        />
-      )}
-
-      {/* Base Prices */}
-      {tab === 'prices' && (
-        <PriceEditor
-          prices={config.base_prices || {}}
-          onSave={prices => save({ base_prices: prices })}
-          saving={saving}
-        />
-      )}
-    </div>
-  )
-}
-
-/* ── Bead Types ───────────────────────────────────────────── */
-function BeadEditor({ items, onSave, saving }) {
-  const [list, setList] = useState(items)
-  const add = () => setList(l => [...l, { name: '', description: '', price_modifier: 0 }])
-  const del = (i) => setList(l => l.filter((_, j) => j !== i))
-  const set = (i, k, v) => setList(l => l.map((x, j) => j === i ? { ...x, [k]: v } : x))
-
-  return (
-    <div className="card p-6">
-      <div className="flex flex-col gap-3 mb-5">
-        {list.map((b, i) => (
-          <div key={i} className="grid grid-cols-12 gap-2 items-start">
-            <input className="input col-span-3" placeholder="Name" value={b.name} onChange={e => set(i, 'name', e.target.value)} />
-            <input className="input col-span-5" placeholder="Description" value={b.description} onChange={e => set(i, 'description', e.target.value)} />
-            <input className="input col-span-3" type="number" placeholder="Extra ₦" value={b.price_modifier} onChange={e => set(i, 'price_modifier', parseInt(e.target.value) || 0)} />
-            <button onClick={() => del(i)} style={{ background: 'none', border: 'none', color: 'var(--pink)', fontSize: 18, padding: 4 }}>✕</button>
-          </div>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <button className="btn-outline flex-1" onClick={add}>+ Add Bead Type</button>
-        <button className="btn-gold flex-1" onClick={() => onSave(list)} disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
+      <header className="flex flex-wrap items-end justify-between gap-4 mb-7">
+        <div>
+          <p className="eyebrow mb-2">Custom builder</p>
+          <h1 className="h1">Builder options</h1>
+          <p className="text-sm text-ink-2 mt-2" style={{ maxWidth: '52ch' }}>
+            These are the choices customers see — and the prices the server uses when it
+            quotes a custom order. Changing a price here changes what is charged.
+          </p>
+        </div>
+        <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>
+          {saving ? 'Saving…' : 'Save all changes'}
         </button>
-      </div>
-    </div>
-  )
-}
+      </header>
 
-/* ── Colours ──────────────────────────────────────────────── */
-function ColorEditor({ items, onSave, saving }) {
-  const [list, setList] = useState(items)
-  const add = () => setList(l => [...l, { name: '', hex: '#D4A830' }])
-  const del = (i) => setList(l => l.filter((_, j) => j !== i))
-  const set = (i, k, v) => setList(l => l.map((x, j) => j === i ? { ...x, [k]: v } : x))
-
-  return (
-    <div className="card p-6">
-      <div className="flex flex-wrap gap-3 mb-5">
-        {list.map((c, i) => (
-          <div key={i} className="flex items-center gap-2 p-2 rounded-xl" style={{ background: 'var(--surf2)' }}>
-            <input type="color" value={c.hex.startsWith('#') ? c.hex : '#D4A830'} onChange={e => set(i, 'hex', e.target.value)}
-              style={{ width: 32, height: 32, border: 'none', borderRadius: '50%', padding: 0, background: 'none' }} />
-            <input className="input text-xs" style={{ width: 100 }} placeholder="Name" value={c.name} onChange={e => set(i, 'name', e.target.value)} />
-            <button onClick={() => del(i)} style={{ background: 'none', border: 'none', color: 'var(--pink)', fontSize: 16 }}>✕</button>
+      <div className="flex flex-col gap-6">
+        {/* ── Base prices ─────────────────────────────────────────────────── */}
+        <section className="card p-6">
+          <h2 className="h3 mb-1">Starting price</h2>
+          <p className="text-sm text-ink-2 mb-5">Before any bead or charm surcharges.</p>
+          <div className="grid sm:grid-cols-3 gap-4">
+            {PIECE_TYPES.map((type) => (
+              <div key={type}>
+                <label className="label capitalize" htmlFor={`base-${type}`}>
+                  {type}
+                </label>
+                <input
+                  id={`base-${type}`}
+                  type="number"
+                  min="0"
+                  step="100"
+                  className="field numeric"
+                  value={basePrices[type] ?? 0}
+                  onChange={(e) =>
+                    setBasePrices((p) => ({ ...p, [type]: Number.parseInt(e.target.value, 10) || 0 }))
+                  }
+                />
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <button className="btn-outline flex-1" onClick={add}>+ Add Colour</button>
-        <button className="btn-gold flex-1" onClick={() => onSave(list)} disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-      </div>
-    </div>
-  )
-}
+        </section>
 
-/* ── Charms ───────────────────────────────────────────────── */
-function CharmEditor({ items, onSave, saving }) {
-  const [list, setList] = useState(items)
-  const add = () => setList(l => [...l, { name: '', price: 500 }])
-  const del = (i) => setList(l => l.filter((_, j) => j !== i))
-  const set = (i, k, v) => setList(l => l.map((x, j) => j === i ? { ...x, [k]: v } : x))
-
-  return (
-    <div className="card p-6">
-      <div className="flex flex-col gap-3 mb-5">
-        {list.map((c, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <input className="input flex-1" placeholder="Charm name" value={c.name} onChange={e => set(i, 'name', e.target.value)} />
-            <input className="input w-36" type="number" placeholder="Price ₦" value={c.price} onChange={e => set(i, 'price', parseInt(e.target.value) || 0)} />
-            <button onClick={() => del(i)} style={{ background: 'none', border: 'none', color: 'var(--pink)', fontSize: 18, flexShrink: 0 }}>✕</button>
-          </div>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <button className="btn-outline flex-1" onClick={add}>+ Add Charm</button>
-        <button className="btn-gold flex-1" onClick={() => onSave(list)} disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-      </div>
-    </div>
-  )
-}
-
-/* ── Base Prices ──────────────────────────────────────────── */
-function PriceEditor({ prices, onSave, saving }) {
-  const [vals, setVals] = useState(prices)
-  const set = (k, v) => setVals(p => ({ ...p, [k]: parseInt(v) || 0 }))
-
-  return (
-    <div className="card p-6 max-w-sm">
-      <p className="text-sm mb-4" style={{ color: 'var(--tx2)' }}>
-        Base price before bead type or charm additions.
-      </p>
-      <div className="flex flex-col gap-3 mb-5">
-        {['bracelet', 'necklace', 'earrings'].map(p => (
-          <div key={p}>
-            <label className="label capitalize">{p}</label>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold" style={{ color: 'var(--tx2)' }}>₦</span>
-              <input
-                className="input pl-8"
-                type="number"
-                value={vals[p] || 0}
-                onChange={e => set(p, e.target.value)}
-              />
+        {/* ── Bead types ──────────────────────────────────────────────────── */}
+        <section className="card p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="h3">Bead types</h2>
+              <p className="text-sm text-ink-2 mt-1">The surcharge is added once per type chosen.</p>
             </div>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={() => setBeadTypes((b) => [...b, { name: '', description: '', price_modifier: 0 }])}
+            >
+              <Icon name="plus" size={15} />
+              Add
+            </button>
           </div>
-        ))}
+
+          <div className="flex flex-col gap-3">
+            {beadTypes.map((bead, i) => (
+              <div key={i} className="grid gap-2" style={{ gridTemplateColumns: 'minmax(0,1.1fr) minmax(0,1.6fr) 110px auto' }}>
+                <input
+                  className="field"
+                  placeholder="Name"
+                  aria-label={`Bead ${i + 1} name`}
+                  value={bead.name ?? ''}
+                  onChange={(e) => patch(setBeadTypes, i, 'name', e.target.value)}
+                />
+                <input
+                  className="field"
+                  placeholder="Short description"
+                  aria-label={`Bead ${i + 1} description`}
+                  value={bead.description ?? ''}
+                  onChange={(e) => patch(setBeadTypes, i, 'description', e.target.value)}
+                />
+                <input
+                  className="field numeric"
+                  type="number"
+                  min="0"
+                  step="100"
+                  aria-label={`Bead ${i + 1} surcharge`}
+                  value={bead.price_modifier ?? 0}
+                  onChange={(e) => patch(setBeadTypes, i, 'price_modifier', Number.parseInt(e.target.value, 10) || 0)}
+                />
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ color: 'var(--bad)' }}
+                  onClick={() => removeAt(setBeadTypes, i)}
+                  aria-label={`Remove bead type ${bead.name || i + 1}`}
+                >
+                  <Icon name="trash" size={15} />
+                </button>
+              </div>
+            ))}
+            {beadTypes.length === 0 && <p className="text-sm text-ink-3">No bead types. Customers cannot build anything.</p>}
+          </div>
+        </section>
+
+        {/* ── Charms ──────────────────────────────────────────────────────── */}
+        <section className="card p-6">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="h3">Charms</h2>
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => setCharmTypes((c) => [...c, { name: '', price: 0 }])}>
+              <Icon name="plus" size={15} />
+              Add
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {charmTypes.map((charm, i) => (
+              <div key={i} className="grid gap-2" style={{ gridTemplateColumns: 'minmax(0,1fr) 110px auto' }}>
+                <input
+                  className="field"
+                  placeholder="Name"
+                  aria-label={`Charm ${i + 1} name`}
+                  value={charm.name ?? ''}
+                  onChange={(e) => patch(setCharmTypes, i, 'name', e.target.value)}
+                />
+                <input
+                  className="field numeric"
+                  type="number"
+                  min="0"
+                  step="100"
+                  aria-label={`Charm ${i + 1} price`}
+                  value={charm.price ?? 0}
+                  onChange={(e) => patch(setCharmTypes, i, 'price', Number.parseInt(e.target.value, 10) || 0)}
+                />
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ color: 'var(--bad)' }}
+                  onClick={() => removeAt(setCharmTypes, i)}
+                  aria-label={`Remove charm ${charm.name || i + 1}`}
+                >
+                  <Icon name="trash" size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Colours ─────────────────────────────────────────────────────── */}
+        <section className="card p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="h3">Colours</h2>
+              <p className="text-sm text-ink-2 mt-1">The swatch is what the customer sees — make it honest.</p>
+            </div>
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => setColors((c) => [...c, { name: '', hex: '#B4552F' }])}>
+              <Icon name="plus" size={15} />
+              Add
+            </button>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            {colors.map((color, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span
+                  className="flex-shrink-0"
+                  style={{ width: 34, height: 34, borderRadius: '50%', background: color.hex, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.15)' }}
+                />
+                <input
+                  className="field"
+                  placeholder="Name"
+                  aria-label={`Colour ${i + 1} name`}
+                  value={color.name ?? ''}
+                  onChange={(e) => patch(setColors, i, 'name', e.target.value)}
+                />
+                <input
+                  className="field"
+                  style={{ width: 108 }}
+                  placeholder="#B4552F"
+                  aria-label={`Colour ${i + 1} hex`}
+                  value={color.hex ?? ''}
+                  onChange={(e) => patch(setColors, i, 'hex', e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ color: 'var(--bad)' }}
+                  onClick={() => removeAt(setColors, i)}
+                  aria-label={`Remove colour ${color.name || i + 1}`}
+                >
+                  <Icon name="trash" size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
-      <button className="btn-gold w-full" onClick={() => onSave(vals)} disabled={saving}>
-        {saving ? 'Saving…' : 'Save Prices'}
-      </button>
+
+      {/* ── Preview of the arithmetic ─────────────────────────────────────── */}
+      <section className="well p-5 mt-6">
+        <p className="eyebrow mb-2">Worked example</p>
+        <p className="text-sm text-ink-2">
+          A bracelet with {beadTypes[0]?.name || 'the first bead type'} and{' '}
+          {charmTypes[0]?.name || 'the first charm'} currently quotes at{' '}
+          <span className="numeric font-semibold text-ink">
+            {fmt(
+              (Number(basePrices.bracelet ?? 0) +
+                Number(beadTypes[0]?.price_modifier ?? 0) +
+                Number(charmTypes[0]?.price ?? 0))
+            )}
+          </span>
+          .
+        </p>
+      </section>
+
+      <div className="flex justify-end mt-6">
+        <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>
+          {saving ? 'Saving…' : 'Save all changes'}
+        </button>
+      </div>
     </div>
   )
 }

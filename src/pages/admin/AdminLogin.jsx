@@ -1,89 +1,118 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { ADMIN_BASE } from '../../lib/adminPath'
+import { useSeo } from '../../lib/useSeo'
+import { friendlyError } from '../../lib/utils'
+import { Mark } from '../../components/Brand'
+import Icon from '../../components/Icon'
 
 export default function AdminLogin() {
-  const nav = useNavigate()
-  const [email, setEmail]       = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState('')
+  const navigate = useNavigate()
+  const location = useLocation()
 
-  const handleLogin = async (e) => {
+  useSeo({ title: 'Admin', noindex: true })
+
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  // Already signed in and already an admin? Skip the form.
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) return
+      const { data: isAdmin } = await supabase.rpc('is_admin')
+      if (isAdmin === true) navigate(location.state?.from ?? '/admin', { replace: true })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const signIn = async (e) => {
     e.preventDefault()
-    setLoading(true); setError('')
+    setLoading(true)
+    setError('')
+
     const { error: err } = await supabase.auth.signInWithPassword({ email, password })
-    if (err) { setError(err.message); setLoading(false) }
-    else nav(ADMIN_BASE)
+
+    if (err) {
+      // Deliberately vague: distinguishing "no such user" from "wrong
+      // password" hands an attacker a way to enumerate valid accounts.
+      setError(
+        /invalid|credentials/i.test(err.message)
+          ? 'That email and password do not match.'
+          : friendlyError(err, 'Could not sign in. Please try again.')
+      )
+      setLoading(false)
+      return
+    }
+
+    navigate(location.state?.from ?? '/admin', { replace: true })
   }
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center px-6"
-      style={{ background: 'var(--bg)' }}
-    >
-      <div className="w-full max-w-sm">
+    <main className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)', padding: 'var(--gutter)' }}>
+      <div style={{ width: '100%', maxWidth: 380 }}>
         <div className="text-center mb-8">
-          <div
-            className="inline-flex items-center justify-center rounded-full mb-4"
-            style={{
-              width: 52, height: 52,
-              background: 'linear-gradient(135deg, var(--purple), var(--purple2))',
-              border: '2px solid var(--gold)',
-            }}
-          >
-            <svg width="22" height="22" viewBox="0 0 20 20">
-              <circle cx="10" cy="10" r="9" fill="rgba(255,255,255,0.2)"/>
-              <circle cx="6"  cy="10" r="2.5" fill="white" opacity=".8"/>
-              <circle cx="10" cy="6"  r="2"   fill="white" opacity=".6"/>
-              <circle cx="14" cy="10" r="2.5" fill="white" opacity=".8"/>
-              <circle cx="10" cy="14" r="2"   fill="white" opacity=".6"/>
-            </svg>
-          </div>
-          <h1 className="font-serif text-2xl font-semibold" style={{ color: 'var(--tx)' }}>
-            Admin Panel
-          </h1>
-          <p className="text-sm mt-1" style={{ color: 'var(--tx2)' }}>Krystal Beaded Bliss</p>
+          <Mark size={34} className="mx-auto" />
+          <h1 className="h2 mt-4">Admin</h1>
+          <p className="meta mt-1">Krystal Beaded Bliss</p>
         </div>
 
-        <form onSubmit={handleLogin} className="card p-6 flex flex-col gap-4">
+        <form onSubmit={signIn} className="card p-6 flex flex-col gap-5">
           <div>
-            <label className="label">Email</label>
+            <label className="label" htmlFor="admin-email">
+              Email
+            </label>
             <input
-              className="input"
+              id="admin-email"
               type="email"
-              placeholder="admin@example.com"
+              className="field"
+              autoComplete="username"
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
               required
+              autoFocus
             />
           </div>
+
           <div>
-            <label className="label">Password</label>
+            <label className="label" htmlFor="admin-password">
+              Password
+            </label>
             <input
-              className="input"
+              id="admin-password"
               type="password"
-              placeholder="••••••••"
+              className="field"
+              autoComplete="current-password"
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={(e) => setPassword(e.target.value)}
               required
             />
           </div>
 
           {error && (
-            <p className="text-sm" style={{ color: 'var(--pink)' }}>{error}</p>
+            <p className="error-text flex items-start gap-2" role="alert">
+              <Icon name="alert" size={16} style={{ marginTop: 2 }} />
+              {error}
+            </p>
           )}
 
-          <button
-            type="submit"
-            className="btn-primary w-full mt-1"
-            disabled={loading}
-          >
-            {loading ? 'Signing in…' : 'Sign In'}
+          <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
+            {loading ? (
+              <>
+                <Icon name="spinner" size={17} className="animate-spin" /> Signing in…
+              </>
+            ) : (
+              'Sign in'
+            )}
           </button>
         </form>
+
+        <p className="help text-center mt-5">
+          Access is granted by adding your user to the <span className="numeric">admins</span> table.
+          Signing up alone does not grant it.
+        </p>
       </div>
-    </div>
+    </main>
   )
 }

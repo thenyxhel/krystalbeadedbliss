@@ -1,154 +1,234 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { friendlyError, formatDate } from '../lib/utils'
+import { useToast } from './Toast'
+import Icon from './Icon'
 
-function Stars({ value, size = 16, onPick }) {
+function Stars({ value, size = 16 }) {
   return (
-    <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map(n => (
-        <button
+    <span className="inline-flex gap-0.5" role="img" aria-label={`${value} out of 5 stars`}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Icon
           key={n}
-          type="button"
-          onClick={() => onPick?.(n)}
-          disabled={!onPick}
-          style={{ background: 'none', border: 'none', padding: 0, cursor: onPick ? undefined : 'default' }}
-        >
-          <svg width={size} height={size} viewBox="0 0 24 24" fill={n <= value ? 'var(--gold)' : 'none'} stroke="var(--gold)" strokeWidth="1.5">
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-          </svg>
-        </button>
+          name="star"
+          size={size}
+          style={{ color: 'var(--brass)', fill: n <= value ? 'var(--brass)' : 'none' }}
+        />
       ))}
-    </div>
+    </span>
   )
 }
 
-export default function ReviewSection({ productId }) {
+/**
+ * A real radio group, not five buttons.
+ *
+ * The old star picker was a row of <button>s with no grouping, no label and
+ * no selected state exposed — a keyboard user could tab through five
+ * identical unlabelled controls and never learn which one was chosen.
+ */
+function StarPicker({ value, onChange }) {
+  return (
+    <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+      <legend className="label">Rating</legend>
+      <div className="flex gap-1">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <label
+            key={n}
+            className="cursor-pointer"
+            style={{ lineHeight: 0, padding: 2 }}
+            title={`${n} star${n === 1 ? '' : 's'}`}
+          >
+            <input
+              type="radio"
+              name="rating"
+              value={n}
+              checked={value === n}
+              onChange={() => onChange(n)}
+              className="sr-only"
+            />
+            <Icon
+              name="star"
+              size={26}
+              style={{ color: 'var(--brass)', fill: n <= value ? 'var(--brass)' : 'none' }}
+            />
+            <span className="sr-only">
+              {n} star{n === 1 ? '' : 's'}
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  )
+}
+
+export default function ReviewSection({ productId, productName }) {
+  const { toast } = useToast()
+
   const [reviews, setReviews] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [done, setDone] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
   const [form, setForm] = useState({ name: '', rating: 5, comment: '' })
 
-  const load = () => {
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+
     supabase
       .from('reviews')
-      .select('*')
+      .select('id, customer_name, rating, comment, created_at')
       .eq('product_id', productId)
       .eq('status', 'approved')
       .order('created_at', { ascending: false })
-      .then(({ data }) => { setReviews(data || []); setLoading(false) })
-  }
+      .limit(20)
+      .then(({ data, error }) => {
+        if (cancelled) return
+        if (error) console.error('[KBB] reviews:', error)
+        setReviews(data ?? [])
+        setLoading(false)
+      })
 
-  useEffect(() => { load() }, [productId])
+    return () => {
+      cancelled = true
+    }
+  }, [productId])
 
-  const avg = reviews.length
-    ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
+  const average = reviews.length
+    ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
     : null
 
-  const submit = async () => {
-    if (!form.name || !form.comment) return
+  const valid = form.name.trim().length >= 2 && form.comment.trim().length >= 4
+
+  const submit = async (e) => {
+    e.preventDefault()
+    if (!valid || submitting) return
+
     setSubmitting(true)
     const { error } = await supabase.from('reviews').insert({
       product_id: productId,
-      customer_name: form.name,
+      customer_name: form.name.trim(),
       rating: form.rating,
-      comment: form.comment,
-      status: 'pending',
+      comment: form.comment.trim(),
+      status: 'pending', // RLS enforces this too — belt and braces.
     })
     setSubmitting(false)
-    if (!error) {
-      setDone(true)
-      setForm({ name: '', rating: 5, comment: '' })
+
+    if (error) {
+      toast(friendlyError(error, 'We could not save your review. Please try again.'), 'bad')
+      return
     }
+
+    setSubmitted(true)
+    setShowForm(false)
+    setForm({ name: '', rating: 5, comment: '' })
+    toast('Thank you — your review will appear once we have read it.')
   }
 
   return (
-    <div className="mt-12">
-      <div className="flex items-center justify-between mb-5">
+    <section className="mt-20" aria-labelledby="reviews-heading">
+      <div className="flex flex-wrap items-end justify-between gap-4 mb-7">
         <div>
-          <p className="section-eyebrow mb-1">What customers say</p>
-          <div className="flex items-center gap-2">
-            <h2 className="font-serif text-2xl font-semibold" style={{ color: 'var(--tx)' }}>Reviews</h2>
-            {avg && (
-              <span className="flex items-center gap-1 text-sm font-semibold" style={{ color: 'var(--tx2)' }}>
-                <Stars value={Math.round(avg)} size={14} /> {avg} ({reviews.length})
+          <p className="eyebrow mb-2">In their words</p>
+          <h2 className="h2" id="reviews-heading">
+            Reviews
+          </h2>
+          {average !== null && (
+            <p className="flex items-center gap-2 mt-2 text-sm text-ink-2">
+              <Stars value={Math.round(average)} size={15} />
+              <span className="numeric font-semibold text-ink">{average.toFixed(1)}</span>
+              <span className="text-ink-3">
+                ({reviews.length} {reviews.length === 1 ? 'review' : 'reviews'})
               </span>
-            )}
-          </div>
+            </p>
+          )}
         </div>
-        {!showForm && !done && (
-          <button className="btn-outline text-xs" onClick={() => setShowForm(true)}>
-            Write a Review
+
+        {!showForm && !submitted && (
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => setShowForm(true)}>
+            Write a review
           </button>
         )}
       </div>
 
-      {/* Review form */}
-      {showForm && !done && (
-        <div className="card p-5 mb-6">
-          <label className="label">Your Rating</label>
-          <Stars value={form.rating} onPick={r => setForm(f => ({ ...f, rating: r }))} />
-          <div className="mt-4">
-            <label className="label">Your Name</label>
-            <input
-              className="input"
-              placeholder="Name"
-              value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-            />
+      {showForm && (
+        <form onSubmit={submit} className="card p-6 mb-8 animate-rise">
+          <p className="text-sm text-ink-2 mb-5">
+            Reviewing <span className="text-ink font-medium">{productName}</span>. We read every
+            one before it goes up.
+          </p>
+
+          <div className="grid sm:grid-cols-2 gap-5">
+            <div>
+              <label className="label" htmlFor="review-name">
+                Your name
+              </label>
+              <input
+                id="review-name"
+                className="field"
+                value={form.name}
+                maxLength={60}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="How you want to be credited"
+                required
+              />
+            </div>
+            <StarPicker value={form.rating} onChange={(rating) => setForm((f) => ({ ...f, rating }))} />
           </div>
-          <div className="mt-4">
-            <label className="label">Your Review</label>
+
+          <div className="mt-5">
+            <label className="label" htmlFor="review-comment">
+              Your review
+            </label>
             <textarea
-              className="input resize-none"
-              rows={3}
-              placeholder="Tell us what you thought…"
+              id="review-comment"
+              className="field"
+              rows={4}
+              maxLength={1000}
+              style={{ resize: 'vertical' }}
               value={form.comment}
-              onChange={e => setForm(f => ({ ...f, comment: e.target.value }))}
+              onChange={(e) => setForm((f) => ({ ...f, comment: e.target.value }))}
+              placeholder="What did you think of it?"
+              required
             />
+            <p className="help">{form.comment.length}/1000</p>
           </div>
-          <div className="flex gap-2 mt-4">
-            <button className="btn-outline flex-1" onClick={() => setShowForm(false)}>Cancel</button>
-            <button
-              className="btn-gold flex-1"
-              onClick={submit}
-              disabled={submitting || !form.name || !form.comment}
-            >
-              {submitting ? 'Submitting…' : 'Submit Review'}
+
+          <div className="flex gap-2 mt-5">
+            <button type="submit" className="btn btn-primary btn-sm" disabled={!valid || submitting}>
+              {submitting ? 'Sending…' : 'Submit review'}
+            </button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowForm(false)}>
+              Cancel
             </button>
           </div>
-        </div>
+        </form>
       )}
 
-      {done && (
-        <div className="card p-5 mb-6 text-center">
-          <p className="text-sm font-semibold" style={{ color: 'var(--gold)' }}>
-            Thank you! Your review is pending approval and will appear once approved.
-          </p>
-        </div>
-      )}
-
-      {/* Reviews list */}
       {loading ? (
-        <p className="text-sm" style={{ color: 'var(--tx2)' }}>Loading reviews…</p>
-      ) : reviews.length === 0 ? (
-        <p className="text-sm" style={{ color: 'var(--tx2)' }}>No reviews yet — be the first to share your thoughts.</p>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {reviews.map(r => (
-            <div key={r.id} className="card p-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-semibold" style={{ color: 'var(--tx)' }}>{r.customer_name}</p>
-                <Stars value={r.rating} size={14} />
-              </div>
-              <p className="text-sm leading-relaxed" style={{ color: 'var(--tx2)' }}>{r.comment}</p>
-              <p className="text-xs mt-2" style={{ color: 'var(--tx2)' }}>
-                {new Date(r.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
-              </p>
-            </div>
+        <div className="flex flex-col gap-3">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="skeleton" style={{ height: 92 }} />
           ))}
         </div>
+      ) : reviews.length === 0 ? (
+        <p className="text-sm text-ink-3">
+          No reviews yet. If you have one of these, you would be the first.
+        </p>
+      ) : (
+        <ul className="list-none p-0 m-0 grid sm:grid-cols-2 gap-4">
+          {reviews.map((r) => (
+            <li key={r.id} className="card p-5">
+              <div className="flex items-center justify-between gap-3">
+                <p className="font-medium text-ink">{r.customer_name}</p>
+                <Stars value={r.rating} size={14} />
+              </div>
+              <p className="text-sm text-ink-2 mt-2.5">{r.comment}</p>
+              <p className="meta mt-3">{formatDate(r.created_at)}</p>
+            </li>
+          ))}
+        </ul>
       )}
-    </div>
+    </section>
   )
 }

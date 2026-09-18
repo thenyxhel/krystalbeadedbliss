@@ -1,205 +1,240 @@
 import { useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { cap } from '../lib/utils'
-import { Link } from 'react-router-dom'
-import { useToast, ToastContainer } from '../components/Toast'
+import { useSeo } from '../lib/useSeo'
+import { fmt, formatDate, statusMeta } from '../lib/utils'
+import { whatsappLink } from '../lib/config'
+import { useToast } from '../components/Toast'
+import Icon from '../components/Icon'
 
-const STATUS_STEPS = ['pending', 'confirmed', 'processing', 'shipped', 'delivered']
-
-const STATUS_LABELS = {
-  pending:    { label: 'Order Received',    desc: 'We\'ve received your order and are reviewing it.' },
-  confirmed:  { label: 'Payment Confirmed', desc: 'Payment verified. Your order is queued for production.' },
-  processing: { label: 'Being Made',        desc: 'Your piece is being hand-strung with love.' },
-  shipped:    { label: 'On the Way',        desc: 'Your order is on its way to you.' },
-  delivered:  { label: 'Delivered',         desc: 'Your order has been delivered. Enjoy!' },
-  cancelled:  { label: 'Cancelled',         desc: 'This order was cancelled. Contact us for help.' },
-}
+const TIMELINE = ['pending', 'confirmed', 'processing', 'shipped', 'delivered']
 
 export default function TrackOrderPage() {
-  const { toasts, toast } = useToast()
-  const [input, setInput]   = useState('')
-  const [order, setOrder]   = useState(null)
-  const [loading, setLoad]  = useState(false)
-  const [notFound, setNF]   = useState(false)
+  const [params, setParams] = useSearchParams()
+  const { toast } = useToast()
 
-  const search = async () => {
-    const q = input.trim()
-    if (!q) return
-    setLoad(true); setOrder(null); setNF(false)
+  useSeo({
+    title: 'Track your order',
+    description: 'Enter your order number to see where your piece has got to.',
+  })
 
-    const { data, error } = await supabase.rpc('track_order', { p_order_number: q })
+  const [input, setInput] = useState(params.get('order') ?? '')
+  const [order, setOrder] = useState(null)
+  const [state, setState] = useState('idle') // idle | searching | found | missing | error
 
-    if (error || !data || data.length === 0) {
-      setNF(true)
-    } else {
-      setOrder(data[0])
+  const search = async (e) => {
+    e?.preventDefault()
+    const value = input.trim().toUpperCase()
+    if (!value) return
+
+    setState('searching')
+    setOrder(null)
+    setParams({ order: value }, { replace: true })
+
+    const { data, error } = await supabase.rpc('track_order', { p_order_number: value })
+
+    if (error) {
+      console.error('[KBB] track_order:', error)
+      setState('error')
+      return
     }
-    setLoad(false)
+
+    const hit = Array.isArray(data) ? data[0] : data
+    if (!hit) {
+      setState('missing')
+      return
+    }
+
+    setOrder(hit)
+    setState('found')
   }
 
-  const copyOrderNumber = () => {
-    navigator.clipboard.writeText(order.order_number)
-    toast('Order number copied!')
-  }
+  const meta = order ? statusMeta(order.status) : null
+  const stepIndex = order ? TIMELINE.indexOf(order.status) : -1
+  const wa = order ? whatsappLink(`Hi! I am asking about order ${order.order_number}.`) : null
 
-  const stepIndex = order ? STATUS_STEPS.indexOf(order.status) : -1
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(order.order_number)
+      toast('Order number copied.')
+    } catch {
+      toast('Could not copy.', 'warn')
+    }
+  }
 
   return (
-    <div className="max-w-2xl mx-auto px-6 pb-24">
-      <ToastContainer toasts={toasts} />
+    <div className="page-narrow py-12">
+      <header className="mb-8">
+        <p className="eyebrow mb-2">Where is it?</p>
+        <h1 className="h1">Track your order</h1>
+      </header>
 
-      <div className="pt-4 pb-8">
-        <p className="section-eyebrow">Where's my order?</p>
-        <h1 className="section-title">Track Order</h1>
-      </div>
-
-      {/* Search */}
-      <div className="card p-6 mb-6">
-        <label className="label">Order Number</label>
-        <div className="flex gap-2">
+      <form onSubmit={search} className="card p-6">
+        <label className="label" htmlFor="order-number">
+          Order number
+        </label>
+        <div className="flex flex-col sm:flex-row gap-2.5">
           <input
-            className="input flex-1"
-            placeholder="e.g. KBB-A3X9PQ"
+            id="order-number"
+            className="field flex-1"
+            style={{ textTransform: 'uppercase' }}
+            placeholder="KBB-A3X9PQ"
             value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && search()}
+            autoComplete="off"
+            spellCheck={false}
+            onChange={(e) => setInput(e.target.value)}
           />
-          <button
-            className="btn-primary px-5 flex-shrink-0"
-            onClick={search}
-            disabled={loading || !input.trim()}
-          >
-            {loading ? '…' : 'Track'}
+          <button type="submit" className="btn btn-primary" disabled={state === 'searching' || !input.trim()}>
+            {state === 'searching' ? <Icon name="spinner" size={17} className="animate-spin" /> : 'Track'}
           </button>
         </div>
-        <p className="text-xs mt-2" style={{ color: 'var(--tx2)' }}>
-          Your order number was shown on the confirmation page — format: KBB-XXXXXX
+        <p className="help">
+          It was on your confirmation page and looks like <span className="numeric">KBB-XXXXXX</span>.
         </p>
-      </div>
+      </form>
 
-      {/* Not found */}
-      {notFound && (
-        <div className="card p-6 text-center">
-          <p className="font-serif text-xl mb-1" style={{ color: 'var(--tx)' }}>Order not found</p>
-          <p className="text-sm" style={{ color: 'var(--tx2)' }}>
-            Double-check the number or contact us on WhatsApp.
-          </p>
-        </div>
-      )}
-
-      {/* Result */}
-      {order && (
-        <div className="card p-6 animate-fade-up">
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: 'var(--tx2)' }}>
-                {order.is_custom ? 'Custom Order' : 'Order'}
-              </p>
-              <div className="flex items-center gap-2">
-                <p className="font-serif text-2xl font-bold" style={{ color: 'var(--gold)' }}>
-                  {order.order_number}
-                </p>
-                <button
-                  onClick={copyOrderNumber}
-                  title="Copy order number"
-                  style={{ background: 'none', border: 'none', color: 'var(--tx2)', padding: 4 }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="9" y="9" width="13" height="13" rx="2"/>
-                    <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <span
-              className="text-xs font-bold px-3 py-1.5 rounded-full text-white capitalize"
-              style={{ background: order.status === 'cancelled' ? 'var(--pink)' : 'var(--gold)' }}
-            >
-              {STATUS_LABELS[order.status]?.label || cap(order.status)}
-            </span>
+      <div aria-live="polite" className="mt-6">
+        {state === 'missing' && (
+          <div className="well p-6 text-center">
+            <Icon name="search" size={24} className="mx-auto text-ink-3" />
+            <p className="h3 mt-3">We cannot find that order.</p>
+            <p className="text-sm text-ink-2 mt-1.5">
+              Check the number for a stray character — or message us and we will look it up.
+            </p>
+            {whatsappLink('Hi! I cannot find my order number.') && (
+              <a
+                href={whatsappLink('Hi! I cannot find my order number.')}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-outline btn-sm mt-5 no-underline"
+              >
+                <Icon name="whatsapp" size={15} />
+                Ask us
+              </a>
+            )}
           </div>
+        )}
 
-          {/* Timeline — not shown for cancelled */}
-          {order.status !== 'cancelled' && (
-            <div className="mb-6">
-              <div className="flex items-center justify-between relative">
-                <div
-                  className="absolute top-3.5 left-0 right-0 h-px"
-                  style={{ background: 'var(--bd)', zIndex: 0 }}
+        {state === 'error' && (
+          <div className="well p-6 text-center" style={{ borderColor: 'var(--bad)' }}>
+            <p className="text-sm" style={{ color: 'var(--bad)' }}>
+              We could not reach the order system. Please try again in a moment.
+            </p>
+          </div>
+        )}
+
+        {state === 'found' && order && (
+          <article className="card p-6 sm:p-7 animate-rise">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="eyebrow mb-1.5">{order.is_custom ? 'Custom order' : 'Order'}</p>
+                <div className="flex items-center gap-2">
+                  <h2 className="numeric font-display" style={{ fontSize: '1.625rem', fontWeight: 500, color: 'var(--brass)' }}>
+                    {order.order_number}
+                  </h2>
+                  <button type="button" onClick={copy} className="btn btn-ghost btn-sm" style={{ padding: '0.375rem' }} aria-label="Copy order number">
+                    <Icon name="copy" size={15} />
+                  </button>
+                </div>
+              </div>
+              <span className={`badge badge-${meta.tone}`}>{meta.label}</span>
+            </div>
+
+            {order.status !== 'cancelled' && (
+              <ol className="list-none p-0 mt-8 mb-2 flex justify-between relative">
+                {/* Rail behind the dots. */}
+                <span
+                  aria-hidden="true"
+                  className="absolute"
+                  style={{ top: 13, left: 12, right: 12, height: 1, background: 'var(--line-strong)' }}
                 />
-                <div
-                  className="absolute top-3.5 left-0 h-px transition-all duration-500"
+                <span
+                  aria-hidden="true"
+                  className="absolute"
                   style={{
-                    background: 'var(--gold)',
-                    width: stepIndex < 0 ? '0%' : `${(stepIndex / (STATUS_STEPS.length - 1)) * 100}%`,
-                    zIndex: 1,
+                    top: 13,
+                    left: 12,
+                    height: 1,
+                    background: 'var(--clay)',
+                    width: stepIndex <= 0 ? 0 : `calc((100% - 24px) * ${stepIndex / (TIMELINE.length - 1)})`,
+                    transition: 'width 0.5s ease',
                   }}
                 />
-                {STATUS_STEPS.map((s, i) => (
-                  <div key={s} className="flex flex-col items-center gap-1.5 relative z-10">
-                    <div
-                      className="rounded-full flex items-center justify-center text-xs font-bold transition-all"
-                      style={{
-                        width: 28, height: 28,
-                        background: i <= stepIndex ? 'var(--gold)' : 'var(--surf2)',
-                        color:      i <= stepIndex ? 'white' : 'var(--tx2)',
-                        border:     `2px solid ${i <= stepIndex ? 'var(--gold)' : 'var(--bd)'}`,
-                      }}
-                    >
-                      {i < stepIndex ? '✓' : i + 1}
-                    </div>
-                    <p className="text-xs text-center hidden sm:block" style={{ color: i <= stepIndex ? 'var(--gold)' : 'var(--tx2)', maxWidth: 64 }}>
-                      {STATUS_LABELS[s].label}
-                    </p>
+                {TIMELINE.map((s, i) => {
+                  const done = i <= stepIndex
+                  return (
+                    <li key={s} className="relative flex flex-col items-center gap-2" style={{ flex: 1 }}>
+                      <span
+                        className="flex items-center justify-center"
+                        style={{
+                          width: 26,
+                          height: 26,
+                          borderRadius: '50%',
+                          background: done ? 'var(--clay)' : 'var(--surface)',
+                          border: `1px solid ${done ? 'var(--clay)' : 'var(--line-strong)'}`,
+                          color: '#fff',
+                          zIndex: 1,
+                        }}
+                      >
+                        {i < stepIndex ? <Icon name="check" size={14} /> : null}
+                      </span>
+                      <span
+                        className="text-center hidden sm:block"
+                        style={{ fontSize: '0.6875rem', color: done ? 'var(--ink)' : 'var(--ink-3)', maxWidth: 72 }}
+                      >
+                        {statusMeta(s).label}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ol>
+            )}
+
+            <div className="well p-5 mt-7">
+              <p className="font-medium">{meta.label}</p>
+              <p className="text-sm text-ink-2 mt-1">{meta.blurb}</p>
+            </div>
+
+            <dl className="m-0 mt-6 text-sm">
+              {[
+                ['Name on the order', order.first_name],
+                order.total != null ? ['Total', fmt(order.total)] : null,
+                order.estimated_price != null ? ['Estimated price', fmt(order.estimated_price)] : null,
+                ['Placed', formatDate(order.created_at)],
+              ]
+                .filter(Boolean)
+                .map(([key, value], i, arr) => (
+                  <div
+                    key={key}
+                    className="flex justify-between gap-4 py-2.5"
+                    style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none' }}
+                  >
+                    <dt className="text-ink-2">{key}</dt>
+                    <dd className="numeric font-medium m-0">{value}</dd>
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
+            </dl>
 
-          {/* Status message */}
-          <div className="rounded-xl p-4 mb-5" style={{ background: 'var(--surf2)' }}>
-            <p className="text-sm font-semibold mb-1" style={{ color: 'var(--tx)' }}>
-              {STATUS_LABELS[order.status]?.label}
+            {/* Only a first name is ever returned here — an order number is a
+                weak secret, so it must not unlock an address or a phone. */}
+            <p className="help mt-4">
+              For your privacy we only show a first name. Message us if you need the full details.
             </p>
-            <p className="text-sm" style={{ color: 'var(--tx2)' }}>
-              {STATUS_LABELS[order.status]?.desc}
-            </p>
-          </div>
 
-          {/* Order details */}
-          <div className="text-sm" style={{ color: 'var(--tx2)' }}>
-            <div className="flex justify-between py-2" style={{ borderBottom: '1px solid var(--bd)' }}>
-              <span>Customer</span>
-              <span className="font-semibold" style={{ color: 'var(--tx)' }}>{order.customer_name}</span>
+            <div className="flex flex-col sm:flex-row gap-2.5 mt-6">
+              {wa && (
+                <a href={wa} target="_blank" rel="noreferrer" className="btn btn-outline flex-1 no-underline">
+                  <Icon name="whatsapp" size={16} />
+                  Ask about this order
+                </a>
+              )}
+              <Link to={`/complaint?order=${order.order_number}`} className="btn btn-ghost flex-1 no-underline">
+                Report a problem
+              </Link>
             </div>
-            {order.total != null && (
-              <div className="flex justify-between py-2" style={{ borderBottom: '1px solid var(--bd)' }}>
-                <span>Total</span>
-                <span className="font-semibold" style={{ color: 'var(--tx)' }}>₦{Number(order.total).toLocaleString('en-NG')}</span>
-              </div>
-            )}
-            {order.estimated_price != null && (
-              <div className="flex justify-between py-2" style={{ borderBottom: '1px solid var(--bd)' }}>
-                <span>Estimated Price</span>
-                <span className="font-semibold" style={{ color: 'var(--tx)' }}>₦{Number(order.estimated_price).toLocaleString('en-NG')}</span>
-              </div>
-            )}
-            <div className="flex justify-between py-2">
-              <span>Placed</span>
-              <span className="font-semibold" style={{ color: 'var(--tx)' }}>
-                {new Date(order.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex gap-2 mt-5">
-            <Link to="/complaint" className="btn-outline flex-1 text-xs text-center no-underline">
-              File a Complaint
-            </Link>
-          </div>
-        </div>
-      )}
+          </article>
+        )}
+      </div>
     </div>
   )
 }
