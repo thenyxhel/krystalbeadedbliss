@@ -16,7 +16,7 @@ const NAV = [
 const linkStyle = ({ isActive }) => ({
   background: isActive ? 'var(--surface-2)' : 'transparent',
   color: isActive ? 'var(--ink)' : 'var(--ink-2)',
-  borderLeft: `2px solid ${isActive ? 'var(--clay)' : 'transparent'}`,
+  borderLeft: `2px solid ${isActive ? 'var(--accent)' : 'transparent'}`,
 })
 
 export default function AdminLayout() {

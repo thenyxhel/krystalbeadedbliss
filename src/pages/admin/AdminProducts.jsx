@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { CONFIG, categoryLabel } from '../../lib/config'
+import { CONFIG, categoryLabel, styleLabel } from '../../lib/config'
 import { fmt, friendlyError, slugify } from '../../lib/utils'
 import { useToast } from '../../components/Toast'
 import Icon from '../../components/Icon'
@@ -8,6 +8,7 @@ import Icon from '../../components/Icon'
 const EMPTY = {
   name: '',
   category: 'bracelet',
+  style: 'beaded',
   description: '',
   price: '',
   stock: '1',
@@ -71,6 +72,7 @@ export default function AdminProducts() {
       price: String(product.price ?? ''),
       stock: String(product.stock ?? 0),
       description: product.description ?? '',
+      style: product.style ?? 'beaded',
       images: product.images ?? [],
     })
     setEditing(product)
@@ -126,6 +128,7 @@ export default function AdminProducts() {
     const payload = {
       name: form.name.trim(),
       category: form.category,
+      style: form.style,
       description: form.description.trim() || null,
       price,
       stock,
@@ -232,7 +235,10 @@ export default function AdminProducts() {
                       <span className="font-medium">{p.name}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-ink-2">{categoryLabel(p.category)}</td>
+                  <td className="px-4 py-3 text-ink-2">
+                    {categoryLabel(p.category)}
+                    <span className="block meta">{styleLabel(p.style)}</span>
+                  </td>
                   <td className="px-4 py-3 numeric font-semibold">{fmt(p.price)}</td>
                   <td className="px-4 py-3">
                     <span className={`numeric ${p.stock === 0 ? 'font-semibold' : ''}`} style={{ color: p.stock === 0 ? 'var(--bad)' : p.stock <= 3 ? 'var(--warn)' : 'var(--ink)' }}>
@@ -262,7 +268,7 @@ export default function AdminProducts() {
                       <Icon
                         name="star"
                         size={17}
-                        style={{ color: 'var(--brass)', fill: p.featured ? 'var(--brass)' : 'none' }}
+                        style={{ color: 'var(--gold)', fill: p.featured ? 'var(--gold)' : 'none' }}
                       />
                     </button>
                   </td>
@@ -324,7 +330,7 @@ export default function AdminProducts() {
                 <input id="p-name" className="field" value={form.name} onChange={(e) => set('name', e.target.value)} />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div>
                   <label className="label" htmlFor="p-category">
                     Category
@@ -333,6 +339,18 @@ export default function AdminProducts() {
                     {CONFIG.categories.map((c) => (
                       <option key={c.key} value={c.key}>
                         {c.singular}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label" htmlFor="p-style">
+                    Made of
+                  </label>
+                  <select id="p-style" className="field" value={form.style} onChange={(e) => set('style', e.target.value)}>
+                    {CONFIG.styles.map((s) => (
+                      <option key={s.key} value={s.key}>
+                        {s.label}
                       </option>
                     ))}
                   </select>

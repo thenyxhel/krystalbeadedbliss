@@ -46,7 +46,7 @@ function Section({ children, className = '' }) {
 export default function HomePage() {
   useSeo({
     description:
-      'Bracelets, necklaces, earrings and sets, strung one at a time in Lagos. Shop the collection or design a piece of your own.',
+      'Beaded and chain jewellery made by hand in Lagos — bracelets, necklaces, watches, keychains and bag charms. Shop the collection or design your own.',
   })
 
   const [featured, setFeatured] = useState([])
@@ -115,14 +115,15 @@ export default function HomePage() {
             <p className="eyebrow mb-5">{CONFIG.city}</p>
 
             <h1 className="display">
-              Beads, strung
+              Beads. Chains.
               <br />
-              <span style={{ color: 'var(--clay)', fontStyle: 'italic' }}>one at a time.</span>
+              <span style={{ color: 'var(--accent)' }}>Made by hand.</span>
             </h1>
 
             <p className="lede mt-6">
-              Bracelets, necklaces and earrings made by hand — from a collection that is
-              ready to wear today, or built from scratch around a colour you have in mind.
+              Bracelets, necklaces, watches, keychains and bag charms — beaded, chained,
+              or both. Ready to wear today, or built from scratch around a colour you
+              have in mind.
             </p>
 
             {/* Stacked and full width on a phone. Side by side they wrapped
@@ -213,7 +214,7 @@ export default function HomePage() {
           <h2 className="h1 mb-9">What are you after?</h2>
         </Section>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {CONFIG.categories.map((c) => {
             const cover = covers[c.key]
             return (
@@ -231,7 +232,7 @@ export default function HomePage() {
                     />
                   ) : (
                     <span className="absolute inset-0 flex items-center justify-center">
-                      <Icon name={c.key} size={34} className="text-clay" />
+                      <Icon name={c.key} size={34} className="text-accent" />
                     </span>
                   )}
 
@@ -318,7 +319,7 @@ export default function HomePage() {
           <div className="grid sm:grid-cols-3 gap-10">
             {STEPS.map((s, i) => (
               <div key={s.title}>
-                <span className="numeric eyebrow" style={{ color: 'var(--clay)' }}>
+                <span className="numeric eyebrow" style={{ color: 'var(--accent)' }}>
                   {String(i + 1).padStart(2, '0')}
                 </span>
                 <Icon name={s.icon} size={26} className="text-ink mt-4" />
@@ -335,7 +336,7 @@ export default function HomePage() {
       {/* ═══ CUSTOM CTA ═════════════════════════════════════════════════════ */}
       <section style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
         <div className="page py-20 text-center">
-          <p className="eyebrow" style={{ color: 'var(--brass)' }}>
+          <p className="eyebrow" style={{ color: 'var(--gold)' }}>
             One of one
           </p>
           <h2 className="h1 mt-3" style={{ color: 'var(--bg)' }}>

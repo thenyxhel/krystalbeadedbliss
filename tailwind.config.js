@@ -4,8 +4,8 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
-      // Every colour here resolves to a token in index.css. If you find
-      // yourself reaching for a hex code in a component, add a token instead.
+      // Every colour resolves to a token in index.css. If you find yourself
+      // reaching for a hex code in a component, add a token instead.
       colors: {
         bg:            'var(--bg)',
         'bg-sunk':     'var(--bg-sunk)',
@@ -14,19 +14,27 @@ export default {
         ink:           'var(--ink)',
         'ink-2':       'var(--ink-2)',
         'ink-3':       'var(--ink-3)',
-        clay:          'var(--clay)',
-        'clay-deep':   'var(--clay-deep)',
-        'clay-wash':   'var(--clay-wash)',
-        brass:         'var(--brass)',
-        sage:          'var(--sage)',
+        accent:        'var(--accent)',
+        'accent-deep': 'var(--accent-deep)',
+        'accent-wash': 'var(--accent-wash)',
+        'on-accent':   'var(--on-accent)',
+        gold:          'var(--gold)',
+        teal:          'var(--teal)',
         line:          'var(--line)',
         'line-strong': 'var(--line-strong)',
         ok:            'var(--ok)',
         warn:          'var(--warn)',
         bad:           'var(--bad)',
+        // The mark's own colours — fixed across themes.
+        'brand-pink':   'var(--brand-pink)',
+        'brand-orange': 'var(--brand-orange)',
+        'brand-yellow': 'var(--brand-yellow)',
+        'brand-teal':   'var(--brand-teal)',
+        'brand-violet': 'var(--brand-violet)',
+        'brand-purple': 'var(--brand-purple)',
       },
       fontFamily: {
-        display: ['Fraunces', 'Georgia', 'serif'],
+        display: ['Outfit', 'Inter', 'system-ui', 'sans-serif'],
         sans:    ['Inter', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
@@ -34,6 +42,7 @@ export default {
         DEFAULT: 'var(--r-md)',
         md: 'var(--r-md)',
         lg: 'var(--r-lg)',
+        pill: 'var(--r-pill)',
       },
       borderColor: { DEFAULT: 'var(--line)' },
       boxShadow: {

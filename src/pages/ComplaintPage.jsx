@@ -60,9 +60,9 @@ export default function ComplaintPage() {
       <div className="page-narrow py-20 text-center">
         <span
           className="inline-flex items-center justify-center mb-6"
-          style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--clay-wash)' }}
+          style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--accent-wash)' }}
         >
-          <Icon name="mail" size={24} className="text-clay" />
+          <Icon name="mail" size={24} className="text-accent" />
         </span>
         <h1 className="h1">We have it.</h1>
         <p className="text-ink-2 mt-4 mx-auto" style={{ maxWidth: '44ch' }}>

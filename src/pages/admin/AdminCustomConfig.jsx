@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
+import { CONFIG, categoryLabel } from '../../lib/config'
 import { fmt, friendlyError } from '../../lib/utils'
 import { useToast } from '../../components/Toast'
 import Icon from '../../components/Icon'
 
-const PIECE_TYPES = ['bracelet', 'necklace', 'earrings']
+// Driven by the shared taxonomy, so adding a category in config.js gives it
+// a base price field here automatically.
+const PIECE_TYPES = CONFIG.categories.map((c) => c.key)
 
 export default function AdminCustomConfig() {
   const { toast } = useToast()
@@ -91,11 +94,11 @@ export default function AdminCustomConfig() {
         <section className="card p-6">
           <h2 className="h3 mb-1">Starting price</h2>
           <p className="text-sm text-ink-2 mb-5">Before any bead or charm surcharges.</p>
-          <div className="grid sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {PIECE_TYPES.map((type) => (
               <div key={type}>
-                <label className="label capitalize" htmlFor={`base-${type}`}>
-                  {type}
+                <label className="label" htmlFor={`base-${type}`}>
+                  {categoryLabel(type)}
                 </label>
                 <input
                   id={`base-${type}`}

@@ -68,7 +68,7 @@ export default function CartPage() {
                   {categoryLabel(item.category)}
                 </p>
                 <h2 className="h3 mt-1">
-                  <Link to={`/product/${item.slug || item.id}`} className="no-underline text-ink hover:text-clay">
+                  <Link to={`/product/${item.slug || item.id}`} className="no-underline text-ink hover:text-accent">
                     {item.name}
                   </Link>
                 </h2>

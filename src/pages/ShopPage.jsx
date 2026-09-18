@@ -16,7 +16,7 @@ const SORTS = {
   name: { label: 'A–Z', column: 'name', ascending: true },
 }
 
-const COLUMNS = 'id, slug, name, category, description, price, stock, images, available, featured'
+const COLUMNS = 'id, slug, name, category, style, description, price, stock, images, available, featured'
 
 export default function ShopPage() {
   const [params, setParams] = useSearchParams()
@@ -24,6 +24,7 @@ export default function ShopPage() {
   const category = params.get('category') ?? 'all'
   const sortKey = SORTS[params.get('sort')] ? params.get('sort') : 'newest'
   const queryParam = params.get('q') ?? ''
+  const style = params.get('style') ?? 'all'
 
   const [searchInput, setSearchInput] = useState(queryParam)
   const [products, setProducts] = useState([])
@@ -73,6 +74,7 @@ export default function ShopPage() {
         .range(from, from + PAGE_SIZE - 1)
 
       if (category !== 'all') query = query.eq('category', category)
+      if (style !== 'all') query = query.eq('style', style)
       if (queryParam) {
         const safe = queryParam.replace(/[%,()]/g, ' ').trim()
         if (safe) query = query.or(`name.ilike.%${safe}%,description.ilike.%${safe}%`)
@@ -88,7 +90,7 @@ export default function ShopPage() {
       }
       return { rows: data ?? [], count: count ?? 0 }
     },
-    [category, sortKey, queryParam]
+    [category, sortKey, queryParam, style]
   )
 
   useEffect(() => {
@@ -144,7 +146,7 @@ export default function ShopPage() {
       </header>
 
       {/* ── Controls ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-10">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-4 mb-5">
         <div className="relative flex-1 lg:max-w-sm">
           <Icon
             name="search"
@@ -166,28 +168,6 @@ export default function ShopPage() {
           />
         </div>
 
-        <div className="flex-1 flex flex-wrap items-center gap-2" role="group" aria-label="Filter by category">
-          <button
-            type="button"
-            className="chip"
-            aria-pressed={category === 'all'}
-            onClick={() => setParam('category', 'all', 'all')}
-          >
-            All
-          </button>
-          {CONFIG.categories.map((c) => (
-            <button
-              key={c.key}
-              type="button"
-              className="chip"
-              aria-pressed={category === c.key}
-              onClick={() => setParam('category', c.key, 'all')}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
-
         <div className="lg:ml-auto">
           <label className="sr-only" htmlFor="shop-sort">
             Sort
@@ -205,6 +185,63 @@ export default function ShopPage() {
               </option>
             ))}
           </select>
+        </div>
+      </div>
+
+      {/* Two filter rows, because the catalogue has two independent axes.
+          "Beaded bracelets" is a different question from "all keychains",
+          and a single merged row would force shoppers to pick only one. */}
+      <div className="flex flex-col gap-3 mb-10">
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter by category">
+          <span className="eyebrow mr-1" style={{ minWidth: 56 }}>
+            Type
+          </span>
+          <button
+            type="button"
+            className="chip"
+            aria-pressed={category === 'all'}
+            onClick={() => setParam('category', 'all', 'all')}
+          >
+            All
+          </button>
+          {CONFIG.categories.map((c) => (
+            <button
+              key={c.key}
+              type="button"
+              className="chip"
+              aria-pressed={category === c.key}
+              onClick={() => setParam('category', c.key, 'all')}
+            >
+              <Icon name={c.key} size={15} />
+              {c.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter by style">
+          <span className="eyebrow mr-1" style={{ minWidth: 56 }}>
+            Made of
+          </span>
+          <button
+            type="button"
+            className="chip"
+            aria-pressed={style === 'all'}
+            onClick={() => setParam('style', 'all', 'all')}
+          >
+            Any
+          </button>
+          {CONFIG.styles.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              className="chip"
+              aria-pressed={style === s.key}
+              onClick={() => setParam('style', s.key, 'all')}
+            >
+              {s.key !== 'both' && <Icon name={s.key} size={15} />}
+              {s.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -242,7 +279,7 @@ export default function ShopPage() {
               : 'New pieces are added regularly — or design one yourself.'}
           </p>
           <div className="flex gap-2 justify-center mt-6">
-            {(queryParam || category !== 'all') && (
+            {(queryParam || category !== 'all' || style !== 'all') && (
               <button type="button" className="btn btn-outline btn-sm" onClick={() => { setSearchInput(''); setParams({}) }}>
                 Clear filters
               </button>

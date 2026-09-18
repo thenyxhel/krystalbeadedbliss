@@ -12,7 +12,7 @@ function Stars({ value, size = 16 }) {
           key={n}
           name="star"
           size={size}
-          style={{ color: 'var(--brass)', fill: n <= value ? 'var(--brass)' : 'none' }}
+          style={{ color: 'var(--gold)', fill: n <= value ? 'var(--gold)' : 'none' }}
         />
       ))}
     </span>
@@ -49,7 +49,7 @@ function StarPicker({ value, onChange }) {
             <Icon
               name="star"
               size={26}
-              style={{ color: 'var(--brass)', fill: n <= value ? 'var(--brass)' : 'none' }}
+              style={{ color: 'var(--gold)', fill: n <= value ? 'var(--gold)' : 'none' }}
             />
             <span className="sr-only">
               {n} star{n === 1 ? '' : 's'}

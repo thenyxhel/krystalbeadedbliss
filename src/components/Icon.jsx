@@ -48,6 +48,42 @@ const PATHS = {
       <circle cx="15" cy="15" r="5.5" {...STROKE} strokeDasharray="0.1 3.2" strokeWidth={2.2} />
     </>
   ),
+  watch: (
+    <>
+      <circle cx="12" cy="12" r="5.2" {...STROKE} />
+      <path d="M12 9.6V12l1.7 1.2" {...STROKE} />
+      <path d="M9.4 7.2 9.8 3.6h4.4l.4 3.6M9.4 16.8l.4 3.6h4.4l.4-3.6" {...STROKE} />
+    </>
+  ),
+  keychain: (
+    <>
+      <circle cx="8" cy="8" r="4.2" {...STROKE} />
+      <path d="m11 11 4.2 4.2" {...STROKE} />
+      <circle cx="17.4" cy="17.4" r="2.6" fill="currentColor" />
+    </>
+  ),
+  bagcharm: (
+    <>
+      <path d="M8.5 4.5h7l1.2 3.2H7.3z" {...STROKE} />
+      <path d="M9.5 7.7v2.1a2.5 2.5 0 0 0 5 0V7.7" {...STROKE} />
+      <path d="M12 12v2.2" {...STROKE} />
+      <circle cx="12" cy="17.4" r="3.2" fill="currentColor" />
+    </>
+  ),
+  beaded: (
+    <>
+      <circle cx="5" cy="12" r="2.4" fill="currentColor" />
+      <circle cx="12" cy="12" r="3.4" fill="currentColor" />
+      <circle cx="19" cy="12" r="2.4" fill="currentColor" />
+    </>
+  ),
+  chains: (
+    <>
+      <ellipse cx="7" cy="12" rx="4" ry="2.8" {...STROKE} />
+      <ellipse cx="14.5" cy="12" rx="4" ry="2.8" {...STROKE} />
+      <ellipse cx="21" cy="12" rx="2.4" ry="2.8" {...STROKE} />
+    </>
+  ),
 
   /* ── Interface ── */
   cart: (

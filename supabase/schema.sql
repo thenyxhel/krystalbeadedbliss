@@ -113,11 +113,18 @@ $fn$;
 
 -- ═══ PRODUCTS ══════════════════════════════════════════════════════════════
 
+-- Two independent axes:
+--   category -- what the piece is  (bracelet, watch, keychain, ...)
+--   style    -- how it is made     (beaded, chains, or both together)
+-- Bracelets and necklaces are one or the other. Keychains and bag charms
+-- routinely combine beading and chain, so 'both' is a real value, not a fudge.
+
 create table if not exists products (
   id          uuid primary key default gen_random_uuid(),
   slug        text,
   name        text not null check (length(trim(name)) between 1 and 120),
-  category    text not null check (category in ('bracelet','necklace','earrings','anklet','set')),
+  category    text not null,
+  style       text not null default 'beaded',
   description text check (length(description) <= 2000),
   price       integer not null check (price >= 0),       -- whole Naira
   stock       integer not null default 0 check (stock >= 0),
@@ -131,6 +138,23 @@ create table if not exists products (
 alter table products add column if not exists slug  text;
 alter table products add column if not exists stock integer not null default 0;
 alter table products add column if not exists updated_at timestamptz not null default now();
+alter table products add column if not exists style text;
+
+-- Taxonomy, applied as a migration so an existing database picks it up too.
+-- Constraints are dropped before being re-added because a CHECK cannot be
+-- altered in place.
+update products set style = 'beaded' where style is null;
+alter table products alter column style set default 'beaded';
+alter table products alter column style set not null;
+
+alter table products drop constraint if exists products_category_check;
+alter table products drop constraint if exists products_style_check;
+
+alter table products add constraint products_category_check
+  check (category in ('bracelet','necklace','earrings','set','watch','keychain','bagcharm'));
+
+alter table products add constraint products_style_check
+  check (style in ('beaded','chains','both'));
 
 -- Backfill slugs for any rows created before this column existed.
 update products
@@ -207,8 +231,15 @@ select
     {"name":"Olive","hex":"#7A7A3F"},
     {"name":"Cocoa","hex":"#6B4A38"}
   ]'::jsonb,
-  '{"bracelet":5000,"necklace":8000,"earrings":4000}'::jsonb
+  '{"bracelet":5000,"necklace":8000,"earrings":4000,"set":12000,"watch":10000,"keychain":3500,"bagcharm":4000}'::jsonb
 where not exists (select 1 from custom_config);
+
+-- Fill in any piece type added after this row was first created, without
+-- disturbing prices that have already been edited in the admin panel.
+update custom_config
+   set base_prices =
+     '{"bracelet":5000,"necklace":8000,"earrings":4000,"set":12000,"watch":10000,"keychain":3500,"bagcharm":4000}'::jsonb
+     || coalesce(base_prices, '{}'::jsonb);
 
 
 -- ═══ ORDERS ════════════════════════════════════════════════════════════════
@@ -254,7 +285,7 @@ create table if not exists custom_orders (
   customer_name        text not null,
   email                text not null,
   phone                text not null,
-  piece_type           text not null check (piece_type in ('bracelet','necklace','earrings')),
+  piece_type           text not null,
   configuration        jsonb not null,
   estimated_price      integer check (estimated_price >= 0),
   payment_receipt_path text,
@@ -266,6 +297,10 @@ create table if not exists custom_orders (
 
 alter table custom_orders add column if not exists payment_receipt_path text;
 alter table custom_orders add column if not exists updated_at timestamptz not null default now();
+
+alter table custom_orders drop constraint if exists custom_orders_piece_type_check;
+alter table custom_orders add constraint custom_orders_piece_type_check
+  check (piece_type in ('bracelet','necklace','earrings','set','watch','keychain','bagcharm'));
 
 alter table custom_orders enable row level security;
 
@@ -457,6 +492,7 @@ create or replace function place_custom_order(
   p_email         text,
   p_phone         text,
   p_piece_type    text,
+  p_style         text,
   p_bead_types    text[],
   p_color         text,
   p_charms        text[],
@@ -486,10 +522,17 @@ begin
   if length(regexp_replace(coalesce(p_phone,''), '[^0-9]', '', 'g')) < 10 then
     raise exception 'Please enter a valid phone number.' using errcode = '22000';
   end if;
-  if p_piece_type not in ('bracelet','necklace','earrings') then
+  if p_piece_type not in ('bracelet','necklace','earrings','set','watch','keychain','bagcharm') then
     raise exception 'Please choose a piece type.' using errcode = '22000';
   end if;
-  if p_bead_types is null or array_length(p_bead_types, 1) is null then
+  if p_style not in ('beaded','chains','both') then
+    raise exception 'Please choose beaded, chains, or both.' using errcode = '22000';
+  end if;
+
+  -- Beads are only required on a piece that actually has beads. A chains-only
+  -- keychain has no bead type to choose, and demanding one would be nonsense.
+  if p_style in ('beaded','both')
+     and (p_bead_types is null or array_length(p_bead_types, 1) is null) then
     raise exception 'Please choose at least one bead type.' using errcode = '22000';
   end if;
   if coalesce(p_quantity, 0) < 1 or p_quantity > 20 then
@@ -504,16 +547,18 @@ begin
   v_base := coalesce((v_cfg.base_prices ->> p_piece_type)::int, 0);
 
   -- Bead surcharges — unknown names are rejected rather than silently free.
-  foreach v_name in array p_bead_types loop
-    if not exists (select 1 from jsonb_array_elements(v_cfg.bead_types) b
-                    where b ->> 'name' = v_name) then
-      raise exception 'Unknown bead type: %', v_name using errcode = '22000';
-    end if;
-    v_extra := v_extra + coalesce((
-      select (b ->> 'price_modifier')::int
-        from jsonb_array_elements(v_cfg.bead_types) b
-       where b ->> 'name' = v_name limit 1), 0);
-  end loop;
+  if p_bead_types is not null then
+    foreach v_name in array p_bead_types loop
+      if not exists (select 1 from jsonb_array_elements(v_cfg.bead_types) b
+                      where b ->> 'name' = v_name) then
+        raise exception 'Unknown bead type: %', v_name using errcode = '22000';
+      end if;
+      v_extra := v_extra + coalesce((
+        select (b ->> 'price_modifier')::int
+          from jsonb_array_elements(v_cfg.bead_types) b
+         where b ->> 'name' = v_name limit 1), 0);
+    end loop;
+  end if;
 
   -- Charm surcharges.
   if p_charms is not null then
@@ -544,7 +589,8 @@ begin
   ) values (
     v_number, trim(p_customer_name), lower(trim(p_email)), trim(p_phone), p_piece_type,
     jsonb_build_object(
-      'bead_types', to_jsonb(p_bead_types),
+      'style',      p_style,
+      'bead_types', to_jsonb(coalesce(p_bead_types, '{}'::text[])),
       'color',      p_color,
       'charms',     to_jsonb(coalesce(p_charms, '{}'::text[])),
       'quantity',   p_quantity,
@@ -557,8 +603,8 @@ begin
 end;
 $fn$;
 
-revoke all on function place_custom_order(text,text,text,text,text[],text,text[],integer,text) from public;
-grant execute on function place_custom_order(text,text,text,text,text[],text,text[],integer,text) to anon, authenticated;
+revoke all on function place_custom_order(text,text,text,text,text,text[],text,text[],integer,text) from public;
+grant execute on function place_custom_order(text,text,text,text,text,text[],text,text[],integer,text) to anon, authenticated;
 
 
 -- ═══ TRACK ORDER ═══════════════════════════════════════════════════════════

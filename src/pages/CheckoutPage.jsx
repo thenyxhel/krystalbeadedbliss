@@ -337,12 +337,12 @@ export default function CheckoutPage() {
                 <label
                   className="flex flex-col items-center justify-center gap-2 py-9 px-4 text-center cursor-pointer"
                   style={{
-                    border: `1.5px dashed ${receipt ? 'var(--clay)' : 'var(--line-strong)'}`,
+                    border: `1.5px dashed ${receipt ? 'var(--accent)' : 'var(--line-strong)'}`,
                     borderRadius: 'var(--r-md)',
-                    background: receipt ? 'var(--clay-wash)' : 'var(--surface-2)',
+                    background: receipt ? 'var(--accent-wash)' : 'var(--surface-2)',
                   }}
                 >
-                  <Icon name={receipt ? 'check' : 'upload'} size={22} className={receipt ? 'text-clay' : 'text-ink-3'} />
+                  <Icon name={receipt ? 'check' : 'upload'} size={22} className={receipt ? 'text-accent' : 'text-ink-3'} />
                   <span className="text-sm font-medium text-ink">
                     {receipt ? receipt.name : 'Choose a file or take a photo'}
                   </span>

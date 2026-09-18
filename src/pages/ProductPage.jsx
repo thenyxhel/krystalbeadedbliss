@@ -222,7 +222,7 @@ export default function ProductPage() {
                   style={{
                     width: 68,
                     padding: 0,
-                    border: `2px solid ${i === activeImage ? 'var(--clay)' : 'transparent'}`,
+                    border: `2px solid ${i === activeImage ? 'var(--accent)' : 'transparent'}`,
                   }}
                 >
                   <img src={img} alt="" loading="lazy" decoding="async" width="136" height="136" />
@@ -237,7 +237,7 @@ export default function ProductPage() {
           <p className="eyebrow">{categoryLabel(product.category)}</p>
           <h1 className="h1 mt-2">{product.name}</h1>
 
-          <p className="numeric font-display mt-5" style={{ fontSize: '2rem', color: 'var(--brass)', fontWeight: 500 }}>
+          <p className="numeric font-display mt-5" style={{ fontSize: '2rem', color: 'var(--gold)', fontWeight: 500 }}>
             {fmt(product.price)}
           </p>
 

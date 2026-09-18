@@ -1,20 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Krystal Beaded Bliss">
-  <style>
-    .thread { stroke: #B4552F; }
-    .bead-a { fill: #B4552F; }
-    .bead-b { fill: #7A6231; }
-    .bead-c { fill: #4F5C43; }
-    @media (prefers-color-scheme: dark) {
-      .thread { stroke: #E07A4E; }
-      .bead-a { fill: #E07A4E; }
-      .bead-b { fill: #D9B368; }
-      .bead-c { fill: #9DAB8E; }
-    }
-  </style>
-  <path class="thread" d="M4 11a12 12 0 0 0 24 0" fill="none" stroke-width="1.25" stroke-linecap="round" opacity="0.55"/>
-  <circle class="bead-b" cx="5.6"  cy="12.4" r="2.2"/>
-  <circle class="bead-c" cx="10.4" cy="17.6" r="2.8"/>
-  <circle class="bead-a" cx="16"   cy="19.6" r="3.6"/>
-  <circle class="bead-c" cx="21.6" cy="17.6" r="2.8"/>
-  <circle class="bead-b" cx="26.4" cy="12.4" r="2.2"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Krystal Beaded Bliss">
+  <circle cx="25.44" cy="15.77" r="7.2" fill="#FF2E8B"/>
+  <circle cx="43.14" cy="15.73" r="5.4" fill="#FFC814"/>
+  <circle cx="52.44" cy="27.94" r="7.2" fill="#26C6D1"/>
+  <circle cx="46.35" cy="43.21" r="5.4" fill="#A855F7"/>
+  <circle cx="29.46" cy="50.03" r="7.2" fill="#FF7A1F"/>
+  <circle cx="14.48" cy="43.28" r="5.4" fill="#FF2E8B"/>
+  <circle cx="12.69" cy="28.03" r="7.2" fill="#26C6D1"/>
 </svg>

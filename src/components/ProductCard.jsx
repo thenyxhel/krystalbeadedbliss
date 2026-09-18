@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { fmt } from '../lib/utils'
-import { categoryLabel } from '../lib/config'
+import { categoryLabel, styleLabel } from '../lib/config'
 import Icon from './Icon'
 import { Mark } from './Brand'
 
@@ -60,10 +60,11 @@ export default function ProductCard({ product, priority = false }) {
       <div className="pt-3.5 flex flex-col flex-1">
         <p className="eyebrow" style={{ fontSize: '0.625rem' }}>
           {categoryLabel(product.category)}
+          {product.style && <span style={{ color: 'var(--accent)' }}> · {styleLabel(product.style)}</span>}
         </p>
 
         <h3 className="h3 mt-1.5">
-          <Link to={href} className="no-underline text-ink hover:text-clay transition-colors">
+          <Link to={href} className="no-underline text-ink hover:text-accent transition-colors">
             {product.name}
             {/* Everything a screen reader needs, without cluttering the design. */}
             <span className="sr-only">
@@ -80,7 +81,7 @@ export default function ProductCard({ product, priority = false }) {
 
         <div className="mt-auto pt-3 flex items-end justify-between gap-3">
           <div>
-            <p className="numeric font-display text-lg" style={{ color: 'var(--brass)', fontWeight: 500 }}>
+            <p className="numeric font-display text-lg" style={{ color: 'var(--gold)', fontWeight: 500 }}>
               {fmt(product.price)}
             </p>
             {lowStock && (

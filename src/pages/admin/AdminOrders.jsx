@@ -169,11 +169,11 @@ export default function AdminOrders() {
                         background: active ? 'var(--surface-2)' : 'transparent',
                         border: 'none',
                         borderBottom: i < rows.length - 1 ? '1px solid var(--line)' : undefined,
-                        borderLeft: `2px solid ${active ? 'var(--clay)' : 'transparent'}`,
+                        borderLeft: `2px solid ${active ? 'var(--accent)' : 'transparent'}`,
                       }}
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <span className="numeric text-sm font-semibold" style={{ color: 'var(--brass)' }}>
+                        <span className="numeric text-sm font-semibold" style={{ color: 'var(--gold)' }}>
                           {o.order_number}
                         </span>
                         <span className={`badge badge-${meta.tone}`}>{meta.label}</span>
@@ -202,7 +202,7 @@ export default function AdminOrders() {
               <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
                 <div>
                   <p className="eyebrow mb-1">{isCustom ? 'Custom request' : 'Order'}</p>
-                  <h2 className="numeric font-display" style={{ fontSize: '1.5rem', fontWeight: 500, color: 'var(--brass)' }}>
+                  <h2 className="numeric font-display" style={{ fontSize: '1.5rem', fontWeight: 500, color: 'var(--gold)' }}>
                     {selected.order_number}
                   </h2>
                   <p className="meta mt-1">Placed {formatDate(selected.created_at, { weekday: 'short' })}</p>

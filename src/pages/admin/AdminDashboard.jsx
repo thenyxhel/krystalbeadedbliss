@@ -119,7 +119,7 @@ export default function AdminDashboard() {
                   const meta = statusMeta(o.status)
                   return (
                     <tr key={o.id} style={{ borderBottom: i < recent.length - 1 ? '1px solid var(--line)' : 'none' }}>
-                      <td className="px-5 py-3 numeric font-semibold" style={{ color: 'var(--brass)' }}>
+                      <td className="px-5 py-3 numeric font-semibold" style={{ color: 'var(--gold)' }}>
                         {o.order_number}
                       </td>
                       <td className="px-5 py-3">{o.customer_name}</td>

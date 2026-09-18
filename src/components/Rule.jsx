@@ -10,7 +10,7 @@ export default function Rule({ className = '', tone = 'default' }) {
   const beads =
     tone === 'quiet'
       ? ['var(--line-strong)', 'var(--line-strong)', 'var(--line-strong)']
-      : ['var(--brass)', 'var(--clay)', 'var(--sage)']
+      : ['var(--gold)', 'var(--accent)', 'var(--teal)']
 
   return (
     <div className={`flex items-center gap-3 ${className}`} role="presentation">

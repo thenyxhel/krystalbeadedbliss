@@ -108,7 +108,7 @@ export default function AdminReviews() {
                       key={n}
                       name="star"
                       size={14}
-                      style={{ color: 'var(--brass)', fill: n <= r.rating ? 'var(--brass)' : 'none' }}
+                      style={{ color: 'var(--gold)', fill: n <= r.rating ? 'var(--gold)' : 'none' }}
                     />
                   ))}
                 </span>

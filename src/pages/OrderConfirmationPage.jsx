@@ -50,9 +50,9 @@ export default function OrderConfirmationPage() {
     <div className="page-narrow py-14 text-center">
       <span
         className="inline-flex items-center justify-center mb-6"
-        style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--clay-wash)' }}
+        style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--accent-wash)' }}
       >
-        <Icon name="check" size={26} className="text-clay" />
+        <Icon name="check" size={26} className="text-accent" />
       </span>
 
       <p className="eyebrow mb-3">Order placed</p>
@@ -69,7 +69,7 @@ export default function OrderConfirmationPage() {
       <div className="card p-7">
         <p className="eyebrow mb-3">Your order number</p>
         <div className="flex items-center justify-center gap-3">
-          <p className="numeric font-display" style={{ fontSize: '2rem', fontWeight: 500, color: 'var(--brass)' }}>
+          <p className="numeric font-display" style={{ fontSize: '2rem', fontWeight: 500, color: 'var(--gold)' }}>
             {orderNumber}
           </p>
           <button type="button" onClick={copy} className="btn btn-ghost btn-sm" style={{ padding: '0.5rem' }} aria-label="Copy order number">

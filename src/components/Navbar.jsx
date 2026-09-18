@@ -87,7 +87,7 @@ export default function Navbar() {
                 <span
                   className="numeric"
                   style={{
-                    background: 'var(--clay)',
+                    background: 'var(--accent)',
                     color: '#fff',
                     borderRadius: 99,
                     fontSize: 11,
@@ -141,7 +141,7 @@ export default function Navbar() {
               </NavLink>
             ))}
             <Link to="/cart" className="h2 no-underline py-4" style={{ color: 'var(--ink)' }}>
-              Cart {count > 0 && <span className="numeric text-clay">({count})</span>}
+              Cart {count > 0 && <span className="numeric text-accent">({count})</span>}
             </Link>
           </nav>
         </div>

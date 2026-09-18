@@ -129,7 +129,7 @@ export default function TrackOrderPage() {
               <div>
                 <p className="eyebrow mb-1.5">{order.is_custom ? 'Custom order' : 'Order'}</p>
                 <div className="flex items-center gap-2">
-                  <h2 className="numeric font-display" style={{ fontSize: '1.625rem', fontWeight: 500, color: 'var(--brass)' }}>
+                  <h2 className="numeric font-display" style={{ fontSize: '1.625rem', fontWeight: 500, color: 'var(--gold)' }}>
                     {order.order_number}
                   </h2>
                   <button type="button" onClick={copy} className="btn btn-ghost btn-sm" style={{ padding: '0.375rem' }} aria-label="Copy order number">
@@ -155,7 +155,7 @@ export default function TrackOrderPage() {
                     top: 13,
                     left: 12,
                     height: 1,
-                    background: 'var(--clay)',
+                    background: 'var(--accent)',
                     width: stepIndex <= 0 ? 0 : `calc((100% - 24px) * ${stepIndex / (TIMELINE.length - 1)})`,
                     transition: 'width 0.5s ease',
                   }}
@@ -170,8 +170,8 @@ export default function TrackOrderPage() {
                           width: 26,
                           height: 26,
                           borderRadius: '50%',
-                          background: done ? 'var(--clay)' : 'var(--surface)',
-                          border: `1px solid ${done ? 'var(--clay)' : 'var(--line-strong)'}`,
+                          background: done ? 'var(--accent)' : 'var(--surface)',
+                          border: `1px solid ${done ? 'var(--accent)' : 'var(--line-strong)'}`,
                           color: '#fff',
                           zIndex: 1,
                         }}

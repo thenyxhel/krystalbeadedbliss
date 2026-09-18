@@ -93,11 +93,11 @@ export default function AdminComplaints() {
                         background: active ? 'var(--surface-2)' : 'transparent',
                         border: 'none',
                         borderBottom: i < complaints.length - 1 ? '1px solid var(--line)' : undefined,
-                        borderLeft: `2px solid ${active ? 'var(--clay)' : 'transparent'}`,
+                        borderLeft: `2px solid ${active ? 'var(--accent)' : 'transparent'}`,
                       }}
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <span className="numeric text-sm font-semibold" style={{ color: 'var(--brass)' }}>
+                        <span className="numeric text-sm font-semibold" style={{ color: 'var(--gold)' }}>
                           {c.order_number}
                         </span>
                         <span className={`badge badge-${meta.tone}`}>{meta.label}</span>
@@ -123,7 +123,7 @@ export default function AdminComplaints() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="eyebrow mb-1">Order</p>
-                  <p className="numeric font-display" style={{ fontSize: '1.375rem', fontWeight: 500, color: 'var(--brass)' }}>
+                  <p className="numeric font-display" style={{ fontSize: '1.375rem', fontWeight: 500, color: 'var(--gold)' }}>
                     {selected.order_number}
                   </p>
                 </div>
