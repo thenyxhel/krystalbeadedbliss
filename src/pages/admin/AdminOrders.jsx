@@ -238,6 +238,10 @@ export default function AdminOrders() {
                 <Detail label="Name" value={selected.customer_name} />
                 <Detail label="Phone" value={selected.phone} href={`tel:${selected.phone}`} />
                 <Detail label="Email" value={selected.email} href={`mailto:${selected.email}`} />
+                {!isCustom && selected.is_gift && <Detail label="Gift for" value={selected.recipient_name} />}
+                {!isCustom && selected.is_gift && (
+                  <Detail label="Gift note" value={selected.gift_note || 'No note — send without one'} full />
+                )}
                 {!isCustom && <Detail label="State" value={selected.state} />}
                 {!isCustom && <Detail label="Address" value={selected.address} full />}
                 {selected.notes && <Detail label="Notes" value={selected.notes} full />}

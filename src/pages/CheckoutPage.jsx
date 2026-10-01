@@ -56,6 +56,9 @@ export default function CheckoutPage() {
     address: '',
     state: '',
     notes: '',
+    isGift: false,
+    recipientName: '',
+    giftNote: '',
   })
 
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }))
@@ -69,6 +72,8 @@ export default function CheckoutPage() {
     phone: form.phone.replace(/\D/g, '').length < 10 ? 'Please enter a valid phone number.' : null,
     address: form.address.trim().length < 8 ? 'Please give a complete address.' : null,
     state: form.state.trim().length < 2 ? 'Please enter your state.' : null,
+    recipientName:
+      form.isGift && form.recipientName.trim().length < 2 ? "Please enter the recipient's name." : null,
   }
   const detailsValid = Object.values(errors).every((e) => e === null)
 
@@ -131,6 +136,9 @@ export default function CheckoutPage() {
       p_items: serverLines(),
       p_receipt_path: path,
       p_notes: form.notes || null,
+      p_is_gift: form.isGift,
+      p_recipient_name: form.isGift ? form.recipientName : null,
+      p_gift_note: form.isGift ? form.giftNote || null : null,
     })
 
     if (orderError) {
@@ -190,6 +198,28 @@ export default function CheckoutPage() {
             <div className="card p-6 sm:p-7 animate-fade">
               <h2 className="h3 mb-6">Where are we sending it?</h2>
 
+              <label
+                className="flex items-start gap-3 p-4 mb-6 cursor-pointer"
+                style={{
+                  border: `1px solid ${form.isGift ? 'var(--accent)' : 'var(--line-strong)'}`,
+                  borderRadius: 'var(--r-md)',
+                  background: form.isGift ? 'var(--accent-wash)' : 'transparent',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={form.isGift}
+                  onChange={(e) => set('isGift', e.target.checked)}
+                />
+                <span>
+                  <span className="block text-sm font-semibold">Order this as a gift</span>
+                  <span className="block help m-0">
+                    We ship it straight to them, with a note from you inside if you like.
+                  </span>
+                </span>
+              </label>
+
               <div className="flex flex-col gap-5">
                 <Field id="name" error={errors.name} showError={touched.name} label="Full name">
                   <input
@@ -235,7 +265,25 @@ export default function CheckoutPage() {
                   </Field>
                 </div>
 
-                <Field id="address" error={errors.address} showError={touched.address} label="Delivery address">
+                {form.isGift && (
+                  <Field id="recipientName" error={errors.recipientName} showError={touched.recipientName} label="Recipient's full name">
+                    <input
+                      id="recipientName"
+                      className="field"
+                      value={form.recipientName}
+                      onChange={(e) => set('recipientName', e.target.value)}
+                      onBlur={() => blur('recipientName')}
+                      aria-invalid={touched.recipientName && !!errors.recipientName}
+                    />
+                  </Field>
+                )}
+
+                <Field
+                  id="address"
+                  error={errors.address}
+                  showError={touched.address}
+                  label={form.isGift ? "Recipient's delivery address" : 'Delivery address'}
+                >
                   <textarea
                     id="address"
                     className="field"
@@ -250,7 +298,7 @@ export default function CheckoutPage() {
                   />
                 </Field>
 
-                <Field id="state" error={errors.state} showError={touched.state} label="State">
+                <Field id="state" error={errors.state} showError={touched.state} label={form.isGift ? "Recipient's state" : 'State'}>
                   <input
                     id="state"
                     className="field"
@@ -263,13 +311,28 @@ export default function CheckoutPage() {
                   />
                 </Field>
 
+                {form.isGift && (
+                  <Field id="giftNote" label="Note for inside the package (optional)" hint="Written out by hand and tucked in with the gift. Leave blank to send none.">
+                    <textarea
+                      id="giftNote"
+                      className="field"
+                      rows={3}
+                      maxLength={500}
+                      style={{ resize: 'vertical' }}
+                      placeholder="Happy birthday! Thinking of you…"
+                      value={form.giftNote}
+                      onChange={(e) => set('giftNote', e.target.value)}
+                    />
+                  </Field>
+                )}
+
                 <Field id="notes" label="Anything we should know? (optional)">
                   <textarea
                     id="notes"
                     className="field"
                     rows={2}
                     style={{ resize: 'vertical' }}
-                    placeholder="Wrist size, a gift note, delivery timing…"
+                    placeholder="Wrist size, delivery timing…"
                     value={form.notes}
                     onChange={(e) => set('notes', e.target.value)}
                   />
@@ -281,7 +344,7 @@ export default function CheckoutPage() {
                 className="btn btn-primary btn-block mt-7"
                 disabled={!detailsValid}
                 onClick={() => {
-                  setTouched({ name: true, email: true, phone: true, address: true, state: true })
+                  setTouched({ name: true, email: true, phone: true, address: true, state: true, recipientName: true })
                   if (detailsValid) setStep(1)
                 }}
               >

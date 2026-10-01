@@ -215,7 +215,8 @@ export default function HomePage() {
         </Section>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {CONFIG.categories.map((c) => {
+          {/* Watches stay in the shop and filters; only this front-page grid omits them. */}
+          {CONFIG.categories.filter((c) => c.key !== 'watch').map((c) => {
             const cover = covers[c.key]
             return (
               <Link key={c.key} to={`/shop?category=${c.key}`} className="group block no-underline">

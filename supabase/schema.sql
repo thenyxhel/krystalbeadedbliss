@@ -268,6 +268,13 @@ create table if not exists orders (
 alter table orders add column if not exists payment_receipt_path text;
 alter table orders add column if not exists updated_at timestamptz not null default now();
 
+-- Gift orders: the buyer pays, the piece ships to the recipient with an
+-- optional handwritten note slipped inside. `address`/`state` are then the
+-- recipient's, and `customer_name` stays the buyer.
+alter table orders add column if not exists is_gift        boolean not null default false;
+alter table orders add column if not exists recipient_name text;
+alter table orders add column if not exists gift_note      text;
+
 alter table orders enable row level security;
 
 drop policy if exists "orders_public_insert" on orders;
@@ -373,6 +380,10 @@ create policy "complaints_admin_all" on complaints
 -- The browser sends product ids and quantities. Nothing else about money.
 -- Every naira in the resulting row is computed here, from the products table.
 
+-- The signature grew (gift params), so the old overload must go or both
+-- would exist side by side.
+drop function if exists place_order(text,text,text,text,text,jsonb,text,text);
+
 create or replace function place_order(
   p_customer_name text,
   p_email         text,
@@ -381,7 +392,10 @@ create or replace function place_order(
   p_state         text,
   p_items         jsonb,          -- [{"product_id":"uuid","quantity":2}, ...]
   p_receipt_path  text,
-  p_notes         text default null
+  p_notes         text default null,
+  p_is_gift         boolean default false,
+  p_recipient_name  text    default null,
+  p_gift_note       text    default null
 )
 returns table (order_number text, total integer)
 language plpgsql
@@ -416,6 +430,14 @@ begin
   end if;
   if coalesce(p_receipt_path,'') = '' then
     raise exception 'A payment receipt is required.' using errcode = '22000';
+  end if;
+  if coalesce(p_is_gift, false) then
+    if length(trim(coalesce(p_recipient_name,''))) < 2 then
+      raise exception 'Please enter the recipient''s name.' using errcode = '22000';
+    end if;
+    if length(coalesce(p_gift_note,'')) > 500 then
+      raise exception 'Gift notes are limited to 500 characters.' using errcode = '22000';
+    end if;
   end if;
 
   -- ── Validate the basket ──────────────────────────────────────────────────
@@ -468,20 +490,24 @@ begin
 
   insert into orders (
     order_number, customer_name, email, phone, address, state,
-    items, subtotal, delivery_fee, total, payment_receipt_path, status, notes
+    items, subtotal, delivery_fee, total, payment_receipt_path, status, notes,
+    is_gift, recipient_name, gift_note
   ) values (
     v_number, trim(p_customer_name), lower(trim(p_email)), trim(p_phone),
     trim(p_address), trim(p_state),
     v_lines, v_subtotal, v_delivery_fee, v_subtotal + v_delivery_fee,
-    p_receipt_path, 'pending', nullif(trim(coalesce(p_notes,'')), '')
+    p_receipt_path, 'pending', nullif(trim(coalesce(p_notes,'')), ''),
+    coalesce(p_is_gift, false),
+    case when coalesce(p_is_gift, false) then trim(p_recipient_name) end,
+    case when coalesce(p_is_gift, false) then nullif(trim(coalesce(p_gift_note,'')), '') end
   );
 
   return query select v_number, v_subtotal + v_delivery_fee;
 end;
 $fn$;
 
-revoke all on function place_order(text,text,text,text,text,jsonb,text,text) from public;
-grant execute on function place_order(text,text,text,text,text,jsonb,text,text) to anon, authenticated;
+revoke all on function place_order(text,text,text,text,text,jsonb,text,text,boolean,text,text) from public;
+grant execute on function place_order(text,text,text,text,text,jsonb,text,text,boolean,text,text) to anon, authenticated;
 
 
 -- ═══ PLACE CUSTOM ORDER ════════════════════════════════════════════════════
