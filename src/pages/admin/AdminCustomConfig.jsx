@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { CONFIG, categoryLabel } from '../../lib/config'
+import { categoryLabel, customCategories } from '../../lib/config'
 import { fmt, friendlyError } from '../../lib/utils'
 import { useToast } from '../../components/Toast'
 import Icon from '../../components/Icon'
 
 // Driven by the shared taxonomy, so adding a category in config.js gives it
 // a base price field here automatically.
-const PIECE_TYPES = CONFIG.categories.map((c) => c.key)
+const PIECE_TYPES = customCategories.map((c) => c.key)
 
 export default function AdminCustomConfig() {
   const { toast } = useToast()

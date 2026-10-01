@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { fmt } from '../lib/utils'
-import { categoryLabel, styleLabel } from '../lib/config'
+import { categoryLabel, styleLabel, hasStyle } from '../lib/config'
 import Icon from './Icon'
 import { Mark } from './Brand'
 
@@ -60,7 +60,7 @@ export default function ProductCard({ product, priority = false }) {
       <div className="pt-3.5 flex flex-col flex-1">
         <p className="eyebrow" style={{ fontSize: '0.625rem' }}>
           {categoryLabel(product.category)}
-          {product.style && <span style={{ color: 'var(--accent)' }}> · {styleLabel(product.style)}</span>}
+          {product.style && hasStyle(product.category) && <span style={{ color: 'var(--accent)' }}> · {styleLabel(product.style)}</span>}
         </p>
 
         <h3 className="h3 mt-1.5">

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { CONFIG } from '../lib/config'
+import { CONFIG, hasStyle } from '../lib/config'
 import { useSeo } from '../lib/useSeo'
 import ProductCard from '../components/ProductCard'
 import Icon from '../components/Icon'
@@ -74,7 +74,7 @@ export default function ShopPage() {
         .range(from, from + PAGE_SIZE - 1)
 
       if (category !== 'all') query = query.eq('category', category)
-      if (style !== 'all') query = query.eq('style', style)
+      if (style !== 'all') query = query.eq('style', style).neq('category', 'watch')
       if (queryParam) {
         const safe = queryParam.replace(/[%,()]/g, ' ').trim()
         if (safe) query = query.or(`name.ilike.%${safe}%,description.ilike.%${safe}%`)
@@ -218,6 +218,7 @@ export default function ShopPage() {
           ))}
         </div>
 
+        {hasStyle(category) && (
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter by style">
           <span className="eyebrow mr-1" style={{ minWidth: 56 }}>
             Made of
@@ -243,6 +244,7 @@ export default function ShopPage() {
             </button>
           ))}
         </div>
+        )}
       </div>
 
       {/* ── Results ───────────────────────────────────────────────────────── */}

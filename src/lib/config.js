@@ -48,6 +48,12 @@ export const CONFIG = {
   orderStatuses: ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'],
 }
 
+// Watches are bought as they are: they can't be designed in the builder and
+// have no beaded/chains style. They stay a shop category and nothing else.
+export const NO_STYLE_CATEGORIES = ['watch']
+export const hasStyle = (category) => !NO_STYLE_CATEGORIES.includes(category)
+export const customCategories = CONFIG.categories.filter((c) => hasStyle(c.key))
+
 export const categoryLabel = (key) =>
   CONFIG.categories.find((c) => c.key === key)?.singular ?? key
 

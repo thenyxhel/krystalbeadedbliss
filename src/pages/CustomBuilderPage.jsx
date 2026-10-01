@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { CONFIG, categoryLabel } from '../lib/config'
+import { CONFIG, categoryLabel, customCategories } from '../lib/config'
 import { useSeo } from '../lib/useSeo'
 import { fmt, friendlyError } from '../lib/utils'
 import Icon from '../components/Icon'
@@ -227,7 +227,7 @@ export default function CustomBuilderPage() {
           <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
             <legend className="sr-only">Piece type</legend>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {CONFIG.categories.map((c) => (
+              {customCategories.map((c) => (
                 <label
                   key={c.key}
                   className="flex flex-col items-center gap-3 py-6 cursor-pointer transition-colors"

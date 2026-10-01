@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { supabase } from '../../lib/supabase'
-import { CONFIG, categoryLabel, styleLabel } from '../../lib/config'
+import { CONFIG, categoryLabel, styleLabel, hasStyle } from '../../lib/config'
 import { fmt, friendlyError, slugify } from '../../lib/utils'
 import { useToast } from '../../components/Toast'
 import Icon from '../../components/Icon'
@@ -237,7 +237,7 @@ export default function AdminProducts() {
                   </td>
                   <td className="px-4 py-3 text-ink-2">
                     {categoryLabel(p.category)}
-                    <span className="block meta">{styleLabel(p.style)}</span>
+                    {hasStyle(p.category) && <span className="block meta">{styleLabel(p.style)}</span>}
                   </td>
                   <td className="px-4 py-3 numeric font-semibold">{fmt(p.price)}</td>
                   <td className="px-4 py-3">
@@ -343,6 +343,7 @@ export default function AdminProducts() {
                     ))}
                   </select>
                 </div>
+                {hasStyle(form.category) && (
                 <div>
                   <label className="label" htmlFor="p-style">
                     Made of
@@ -355,6 +356,7 @@ export default function AdminProducts() {
                     ))}
                   </select>
                 </div>
+                )}
                 <div>
                   <label className="label" htmlFor="p-price">
                     Price (₦)
