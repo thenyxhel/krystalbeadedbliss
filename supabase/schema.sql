@@ -934,6 +934,39 @@ create trigger custom_orders_status_notify
   )
   execute function notify_email();
 
+-- ═══ EMAIL EVENTS ══════════════════════════════════════════════════════════
+-- What Resend did with each message after we handed it over. Without this, a
+-- receipt that silently failed left no trace anywhere in the database — the
+-- only record was a dashboard someone had to go and look at.
+--
+-- Written by the `resend-webhook` Edge Function using the service role, so
+-- there is deliberately no insert policy: nothing reachable from a browser
+-- may write delivery history.
+
+create table if not exists email_events (
+  id          uuid primary key default gen_random_uuid(),
+  resend_id   text,                  -- Resend's message id, for joining events
+  type        text not null,         -- email.delivered, email.bounced, ...
+  recipient   text,
+  subject     text,
+  occurred_at timestamptz,           -- when Resend says it happened
+  payload     jsonb not null,        -- the whole event, so nothing is lost
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists email_events_resend_id_idx  on email_events (resend_id);
+create index if not exists email_events_created_at_idx on email_events (created_at desc);
+create index if not exists email_events_type_idx       on email_events (type);
+
+alter table email_events enable row level security;
+
+drop policy if exists "email_events_admin_read" on email_events;
+
+-- Who was emailed what is customer data. Admins only, and read-only even for
+-- them — this is a log, not something to edit.
+create policy "email_events_admin_read" on email_events
+  for select to authenticated using (is_admin());
+
 -- ═══════════════════════════════════════════════════════════════════════════
 --  BOOTSTRAP — do this once, by hand, after creating your admin user in
 --  Dashboard → Authentication → Users → Add user.

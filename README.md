@@ -241,9 +241,9 @@ unstuck.
 
 - **Orphaned receipts.** If the upload succeeds but `place_order()` fails, the
   file stays in storage unreferenced. Private and harmless; sweep occasionally.
-- **Email has no retry.** If a send fails, the only record is the Edge Function
-  log and Resend's own Logs tab -- nothing in Postgres says a receipt never went
-  out. Fine at this volume; revisit if email becomes business-critical.
+- **Email has no retry.** `email_events` records what Resend did with each
+  message, so a bounce or a failure is now visible in SQL -- but nothing
+  re-sends it. Fine at this volume; revisit if email becomes business-critical.
 - **No mailbox on the domain.** Resend sends as `support@kbbjewelries.com`, but
   nothing receives there. Customer replies are routed by `REPLY_TO` instead.
 - **No payment gateway.** Bank transfer plus a receipt.
