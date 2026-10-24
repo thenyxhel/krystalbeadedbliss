@@ -899,6 +899,35 @@ create trigger complaints_reply_notify
   )
   execute function notify_email();
 
+-- Status changes. A customer who pays and then hears nothing until the parcel
+-- arrives writes to the complaint form instead, so these two mails are cheaper
+-- than the complaint they prevent.
+--
+-- Only 'confirmed' and 'shipped' are listed: 'processing' tells the customer
+-- nothing they can act on, and 'delivered' reaches them after they already
+-- have the box. Filtering here as well as in the function means a careless
+-- edit to either one cannot start mailing people about every status.
+drop trigger if exists orders_status_notify        on orders;
+drop trigger if exists custom_orders_status_notify on custom_orders;
+
+create trigger orders_status_notify
+  after update on orders
+  for each row
+  when (
+    old.status is distinct from new.status
+    and new.status in ('confirmed', 'shipped')
+  )
+  execute function notify_email();
+
+create trigger custom_orders_status_notify
+  after update on custom_orders
+  for each row
+  when (
+    old.status is distinct from new.status
+    and new.status in ('confirmed', 'shipped')
+  )
+  execute function notify_email();
+
 -- ═══════════════════════════════════════════════════════════════════════════
 --  BOOTSTRAP — do this once, by hand, after creating your admin user in
 --  Dashboard → Authentication → Users → Add user.

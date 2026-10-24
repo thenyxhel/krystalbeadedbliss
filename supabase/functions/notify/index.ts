@@ -234,6 +234,69 @@ function buildOrderMails(r: Record<string, any>, custom: boolean): Mail[] {
   ]
 }
 
+// 5 ─ Status changes. A customer who pays and then hears nothing until the
+//     parcel lands writes to the complaint form instead; these two mails are
+//     cheaper than the complaint they prevent.
+//
+//     Only 'confirmed' and 'shipped' are worth an email. 'processing' says
+//     nothing the customer can act on, and 'delivered' arrives after they
+//     already have the box in their hands. The trigger filters too, but this
+//     returns [] for anything else so neither side has to be trusted alone.
+function buildStatusMails(r: Record<string, any>, custom: boolean): Mail[] {
+  const num = esc(r.order_number)
+  const status = String(r.status ?? '')
+
+  const what = custom
+    ? `your custom ${esc(r.piece_type)}`
+    : 'your order'
+
+  let title: string
+  let subject: string
+  let body: string
+
+  if (status === 'confirmed') {
+    title = 'Payment confirmed'
+    subject = `Order ${num} confirmed — we're making it`
+    body = `<p style="margin:0 0 16px;color:#5c514a;">
+        Your payment for <strong>${num}</strong> has been checked and confirmed, and ${what}
+        is now being made by hand. We&rsquo;ll email you again the moment it&rsquo;s on its way.
+      </p>`
+  } else if (status === 'shipped') {
+    title = 'On its way'
+    subject = `Order ${num} is on its way`
+    body = `<p style="margin:0 0 16px;color:#5c514a;">
+        Good news &mdash; ${what} has left us and is on its way to you.
+      </p>
+      ${
+        r.is_gift === true && r.recipient_name
+          ? `<p style="margin:0 0 16px;color:#5c514a;">It&rsquo;s heading to <strong>${esc(r.recipient_name)}</strong>, with your note inside.</p>`
+          : ''
+      }`
+  } else {
+    return []
+  }
+
+  const html = shell(
+    title,
+    `<p style="margin:0 0 6px;">Hi ${esc(r.customer_name)},</p>
+     ${body}
+     ${table(
+       row('Order number', `<strong>${num}</strong>`) +
+         row('Status', esc(status)) +
+         (custom ? row('Piece', esc(r.piece_type)) : row('Total', naira(r.total))),
+     )}
+     ${callout(
+       `Track it any time at <a href="${SITE}/track" style="color:${BRAND};">kbbjewelries.com/track</a> with order number <strong>${num}</strong>.`,
+     )}
+     <p style="margin:18px 0 0;color:#5c514a;">
+       Anything not right? Just reply to this email.
+     </p>`,
+  )
+
+  // Customer only: the admin changed the status, so they already know.
+  return [{ to: r.email, replyTo: REPLY_TO, subject, html }]
+}
+
 // 3 ─ Complaint acknowledgement, plus an alert — a complaint nobody is told
 //     about is worse than having no complaint form at all.
 function buildComplaintMails(r: Record<string, any>): Mail[] {
@@ -353,11 +416,12 @@ Deno.serve(async (req) => {
 
   let mails: Mail[]
   switch (tbl) {
+    // INSERT is the receipt; UPDATE is a status change.
     case 'orders':
-      mails = buildOrderMails(record, false)
+      mails = type === 'UPDATE' ? buildStatusMails(record, false) : buildOrderMails(record, false)
       break
     case 'custom_orders':
-      mails = buildOrderMails(record, true)
+      mails = type === 'UPDATE' ? buildStatusMails(record, true) : buildOrderMails(record, true)
       break
     case 'complaints':
       // INSERT is the acknowledgement; UPDATE is the admin's actual reply.
@@ -366,6 +430,15 @@ Deno.serve(async (req) => {
       break
     default:
       return new Response(`Unhandled table: ${tbl}`, { status: 400 })
+  }
+
+  // A status with no email of its own (processing, delivered) lands here.
+  // Not an error — there was simply nothing worth saying.
+  if (mails.length === 0) {
+    return new Response(JSON.stringify({ table: tbl, sent: 0, skipped: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 
   // Settled, not all: the admin alert must still go out if the customer's
