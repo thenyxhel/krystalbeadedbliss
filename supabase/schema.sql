@@ -275,6 +275,12 @@ alter table orders add column if not exists is_gift        boolean not null defa
 alter table orders add column if not exists recipient_name text;
 alter table orders add column if not exists gift_note      text;
 
+-- Why an order was cancelled, in the admin's own words. Sent to the customer:
+-- a cancellation they cannot explain to themselves reads as the shop going
+-- quiet on them.
+alter table orders        add column if not exists cancellation_reason text;
+alter table custom_orders add column if not exists cancellation_reason text;
+
 alter table orders enable row level security;
 
 drop policy if exists "orders_public_insert" on orders;
@@ -915,7 +921,7 @@ create trigger orders_status_notify
   for each row
   when (
     old.status is distinct from new.status
-    and new.status in ('confirmed', 'shipped')
+    and new.status in ('confirmed', 'shipped', 'cancelled')
   )
   execute function notify_email();
 
@@ -924,7 +930,7 @@ create trigger custom_orders_status_notify
   for each row
   when (
     old.status is distinct from new.status
-    and new.status in ('confirmed', 'shipped')
+    and new.status in ('confirmed', 'shipped', 'cancelled')
   )
   execute function notify_email();
 

@@ -272,9 +272,37 @@ function buildStatusMails(r: Record<string, any>, custom: boolean): Mail[] {
           ? `<p style="margin:0 0 16px;color:#5c514a;">It&rsquo;s heading to <strong>${esc(r.recipient_name)}</strong>, with your note inside.</p>`
           : ''
       }`
+  } else if (status === 'cancelled') {
+    title = 'Your order has been cancelled'
+    subject = `Order ${num} has been cancelled`
+    body = `<p style="margin:0 0 16px;color:#5c514a;">
+        We&rsquo;re sorry &mdash; ${what} (<strong>${num}</strong>) has been cancelled.
+      </p>
+      ${
+        r.cancellation_reason
+          ? callout(`<strong>Why</strong><br>${esc(r.cancellation_reason).replace(/\n/g, '<br>')}`)
+          : ''
+      }
+      <p style="margin:16px 0 0;color:#5c514a;">
+        If you have already paid, reply to this email and we&rsquo;ll arrange your refund
+        straight away. We&rsquo;re sorry for the disappointment.
+      </p>`
   } else {
     return []
   }
+
+  // Nothing to track once an order is cancelled, and the apology above
+  // already closes the mail — pointing them at a tracking page would be
+  // both useless and a little cold.
+  const tail =
+    status === 'cancelled'
+      ? ''
+      : `${callout(
+          `Track it any time at <a href="${SITE}/track" style="color:${BRAND};">kbbjewelries.com/track</a> with order number <strong>${num}</strong>.`,
+        )}
+         <p style="margin:18px 0 0;color:#5c514a;">
+           Anything not right? Just reply to this email.
+         </p>`
 
   const html = shell(
     title,
@@ -285,12 +313,7 @@ function buildStatusMails(r: Record<string, any>, custom: boolean): Mail[] {
          row('Status', esc(status)) +
          (custom ? row('Piece', esc(r.piece_type)) : row('Total', naira(r.total))),
      )}
-     ${callout(
-       `Track it any time at <a href="${SITE}/track" style="color:${BRAND};">kbbjewelries.com/track</a> with order number <strong>${num}</strong>.`,
-     )}
-     <p style="margin:18px 0 0;color:#5c514a;">
-       Anything not right? Just reply to this email.
-     </p>`,
+     ${tail}`,
   )
 
   // Customer only: the admin changed the status, so they already know.

@@ -98,13 +98,32 @@ export default function AdminOrders() {
   }
 
   const updateStatus = async (nextStatus) => {
-    const { error } = await supabase.from(table).update({ status: nextStatus }).eq('id', selected.id)
+    // A cancellation with no explanation reads to the customer as the shop
+    // going quiet on them. Ask why, and the email tells them in your words.
+    let reason = null
+    if (nextStatus === 'cancelled') {
+      const answer = prompt(
+        'Why is this order being cancelled?\n\n' +
+          'This goes straight to the customer, so write it for them — ' +
+          'e.g. "the beads for this piece are out of stock".',
+      )
+      if (answer === null) return // changed their mind
+      reason = answer.trim() || null
+    }
+
+    const patch = { status: nextStatus }
+    // Set it on cancel, and clear a stale one if the order moves back out.
+    if (nextStatus === 'cancelled' || selected.cancellation_reason) {
+      patch.cancellation_reason = reason
+    }
+
+    const { error } = await supabase.from(table).update(patch).eq('id', selected.id)
     if (error) {
       toast(friendlyError(error, 'Could not update the status.'), 'bad')
       return
     }
     toast(`Marked as ${statusMeta(nextStatus).label.toLowerCase()}.`)
-    setSelected((s) => ({ ...s, status: nextStatus }))
+    setSelected((s) => ({ ...s, ...patch }))
     load()
   }
 
