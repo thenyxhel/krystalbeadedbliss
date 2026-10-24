@@ -274,6 +274,39 @@ function buildComplaintMails(r: Record<string, any>): Mail[] {
   ]
 }
 
+// 4 ─ The reply itself. ComplaintPage promises an answer "on the email you
+//     gave us" within 24–48 hours; until this existed, the admin's response
+//     was written to the database and the customer was never told.
+//     Fired by UPDATE, only when admin_response first becomes non-empty.
+function buildComplaintReplyMails(r: Record<string, any>): Mail[] {
+  const num = esc(r.order_number)
+
+  const html = shell(
+    'About your order',
+    `<p style="margin:0 0 6px;">Hi ${esc(r.customer_name)},</p>
+     <p style="margin:0 0 16px;color:#5c514a;">
+       Thank you for your patience. Here is our reply about order <strong>${num}</strong>.
+     </p>
+     ${callout(esc(r.admin_response).replace(/\n/g, '<br>'))}
+     <p style="margin:18px 0 8px;font-size:13px;color:#8b7d72;">What you told us</p>
+     <p style="margin:0 0 16px;font-size:14px;color:#8b7d72;">
+       <em>&ldquo;${esc(r.message)}&rdquo;</em>
+     </p>
+     <p style="margin:16px 0 0;color:#5c514a;">
+       If this hasn&rsquo;t settled it, just reply to this email and we&rsquo;ll keep going until it&rsquo;s right.
+     </p>`,
+  )
+
+  return [
+    {
+      to: r.email,
+      replyTo: REPLY_TO,
+      subject: `Re: your message about order ${num}`,
+      html,
+    },
+  ]
+}
+
 // ── Send ───────────────────────────────────────────────────────────────────
 
 async function send(mail: Mail) {
@@ -315,7 +348,7 @@ Deno.serve(async (req) => {
     return new Response('Bad JSON', { status: 400 })
   }
 
-  const { table: tbl, record } = payload
+  const { table: tbl, type, record } = payload
   if (!record) return new Response('No record', { status: 400 })
 
   let mails: Mail[]
@@ -327,7 +360,9 @@ Deno.serve(async (req) => {
       mails = buildOrderMails(record, true)
       break
     case 'complaints':
-      mails = buildComplaintMails(record)
+      // INSERT is the acknowledgement; UPDATE is the admin's actual reply.
+      // The trigger's WHEN clause guarantees admin_response is set here.
+      mails = type === 'UPDATE' ? buildComplaintReplyMails(record) : buildComplaintMails(record)
       break
     default:
       return new Response(`Unhandled table: ${tbl}`, { status: 400 })

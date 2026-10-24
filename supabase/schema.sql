@@ -842,7 +842,7 @@ begin
                  'x-hook-secret', v_secret
                ),
     body    := jsonb_build_object(
-                 'type',   'INSERT',
+                 'type',   tg_op,
                  'table',  tg_table_name,
                  'record', to_jsonb(new)
                ),
@@ -877,6 +877,27 @@ create trigger custom_orders_notify
 create trigger complaints_notify
   after insert on complaints
   for each row execute function notify_email();
+
+-- The reply the admin writes in the panel. ComplaintPage promises an answer
+-- "on the email you gave us" within 24-48 hours; without this the response
+-- was saved to the row and the customer was never told.
+--
+-- The WHEN clause stops the common double-send: the admin panel saves status
+-- and admin_response together, so moving a complaint open -> in_review ->
+-- resolved would otherwise re-send the same reply each time. Note that editing
+-- the reply text itself DOES send again -- deliberately, so a corrected answer
+-- reaches the customer rather than sitting unseen in the database.
+drop trigger if exists complaints_reply_notify on complaints;
+
+create trigger complaints_reply_notify
+  after update on complaints
+  for each row
+  when (
+    new.admin_response is not null
+    and length(trim(new.admin_response)) > 0
+    and old.admin_response is distinct from new.admin_response
+  )
+  execute function notify_email();
 
 -- ═══════════════════════════════════════════════════════════════════════════
 --  BOOTSTRAP — do this once, by hand, after creating your admin user in
