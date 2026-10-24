@@ -38,6 +38,22 @@ export default function AdminComplaints() {
   }, [selected])
 
   const save = async (status) => {
+    // Resolving with an empty box closes the complaint silently, and the
+    // customer was promised a reply within 24-48 hours on ComplaintPage.
+    // Easy to do by accident, since the status buttons sit right under a
+    // box you may never have clicked into.
+    if (status === 'resolved' && !response.trim()) {
+      if (
+        !confirm(
+          'Resolve without replying?\n\n' +
+            'The customer was promised a reply within 24–48 hours. ' +
+            'With this box empty they hear nothing at all.',
+        )
+      ) {
+        return
+      }
+    }
+
     setSaving(true)
     const { error } = await supabase
       .from('complaints')
@@ -162,19 +178,24 @@ export default function AdminComplaints() {
               <hr className="hairline my-5" />
 
               <label className="label" htmlFor="response">
-                Internal notes / your response
+                Your reply to the customer
               </label>
               <textarea
                 id="response"
                 className="field"
                 rows={4}
                 style={{ resize: 'vertical' }}
-                placeholder="What you did about it, what you told them…"
+                placeholder="Write it to them, not about them — they read this word for word…"
                 value={response}
                 onChange={(e) => setResponse(e.target.value)}
               />
+              {/* This box used to be private scratch space, and said so. It is
+                  now emailed verbatim, so the label has to say that loudly —
+                  a note written about a customer must never reach them by
+                  accident. */}
               <p className="help">
-                This is not emailed automatically — reply to them directly, then record it here.
+                <strong>This is emailed to {selected.email} as soon as you save.</strong> It is not
+                a private note.
               </p>
 
               <div className="flex gap-2 flex-wrap mt-5">
