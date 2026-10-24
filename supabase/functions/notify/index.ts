@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════════════════════
 //  notify — transactional email for Krystal Beaded Bliss
 //
-//  Fired by an AFTER INSERT trigger on orders, custom_orders and complaints
-//  (see supabase/schema.sql, "EMAIL NOTIFICATIONS"). Sends through Resend.
+//  Fired by triggers on orders, custom_orders and complaints (see
+//  supabase/schema.sql, "EMAIL NOTIFICATIONS"). Sends through Resend.
 //
 //  AUTH
 //  ────
@@ -235,11 +235,11 @@ function buildOrderMails(r: Record<string, any>, custom: boolean): Mail[] {
 }
 
 // 5 ─ Status changes. A customer who pays and then hears nothing until the
-//     parcel lands writes to the complaint form instead; these two mails are
+//     parcel lands writes to the complaint form instead; these mails are
 //     cheaper than the complaint they prevent.
 //
-//     Only 'confirmed' and 'shipped' are worth an email. 'processing' says
-//     nothing the customer can act on, and 'delivered' arrives after they
+//     'confirmed', 'shipped' and 'cancelled' are worth an email. 'processing'
+//     says nothing the customer can act on, and 'delivered' arrives after they
 //     already have the box in their hands. The trigger filters too, but this
 //     returns [] for anything else so neither side has to be trusted alone.
 function buildStatusMails(r: Record<string, any>, custom: boolean): Mail[] {
@@ -427,11 +427,44 @@ Deno.serve(async (req) => {
     return new Response('Not configured', { status: 500 })
   }
 
-  let payload: { table?: string; type?: string; record?: Record<string, any> }
+  let payload: {
+    table?: string
+    type?: string
+    record?: Record<string, any>
+    action?: string
+  }
   try {
     payload = await req.json()
   } catch {
     return new Response('Bad JSON', { status: 400 })
+  }
+
+  // Diagnostic: "did that email actually arrive?" Resend holds the answer,
+  // but the API key deliberately lives only here — it is never handed to a
+  // client or an agent. So the lookup happens inside the function and only
+  // the delivery status comes back out. Gated by the same shared secret.
+  if (payload.action === 'logs') {
+    const res = await fetch('https://api.resend.com/emails?limit=20', {
+      headers: { Authorization: `Bearer ${RESEND_KEY}` },
+    })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      return new Response(JSON.stringify({ error: `Resend ${res.status}`, body }), {
+        status: 502,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    // Trimmed to what diagnosing a missing email actually needs.
+    const rows = (body?.data ?? []).map((e: Record<string, any>) => ({
+      to: Array.isArray(e.to) ? e.to.join(',') : e.to,
+      subject: e.subject,
+      status: e.last_event,
+      at: e.created_at,
+    }))
+    return new Response(JSON.stringify({ count: rows.length, rows }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 
   const { table: tbl, type, record } = payload
