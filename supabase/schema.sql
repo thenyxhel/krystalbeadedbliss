@@ -791,6 +791,93 @@ create policy "receipts_admin_read" on storage.objects
   for select to authenticated using (bucket_id = 'payment-receipts' and is_admin());
 
 
+
+-- ═══ EMAIL NOTIFICATIONS ═══════════════════════════════════════════════════
+-- AFTER INSERT on orders / custom_orders / complaints, hand the new row to
+-- the `notify` Edge Function (supabase/functions/notify/index.ts), which
+-- sends the mail through Resend.
+--
+-- WHY A TRIGGER, AND NOT A CALL FROM THE BROWSER
+-- ──────────────────────────────────────────────
+-- The browser can close, lose signal or be killed the instant after checkout
+-- succeeds. A trigger fires inside the same transaction that created the
+-- order, so a paid order can never exist without its receipt having been
+-- queued.
+--
+-- WHY pg_net
+-- ──────────
+-- net.http_post() only *queues* the request; a background worker sends it
+-- after commit. The customer therefore never waits on an HTTP round trip to
+-- see their confirmation, and a slow Resend cannot slow down checkout.
+
+create extension if not exists pg_net;
+
+-- The function URL and the shared secret live in Vault, NOT in this file, so
+-- this schema stays safe to commit. See the EMAIL SETUP block at the bottom
+-- for the two statements that put them there.
+create or replace function notify_email()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, net, vault
+as $fn$
+declare
+  v_url    text;
+  v_secret text;
+begin
+  select decrypted_secret into v_url
+    from vault.decrypted_secrets where name = 'notify_function_url';
+  select decrypted_secret into v_secret
+    from vault.decrypted_secrets where name = 'notify_hook_secret';
+
+  -- Not configured yet? Stay silent rather than break checkout.
+  if v_url is null or v_secret is null then
+    return null;
+  end if;
+
+  perform net.http_post(
+    url     := v_url,
+    headers := jsonb_build_object(
+                 'Content-Type',  'application/json',
+                 'x-hook-secret', v_secret
+               ),
+    body    := jsonb_build_object(
+                 'type',   'INSERT',
+                 'table',  tg_table_name,
+                 'record', to_jsonb(new)
+               ),
+    timeout_milliseconds := 5000
+  );
+
+  return null;
+
+-- An order that has been paid for must never be lost because an email could
+-- not be queued. Warn into the Postgres log and let the insert stand.
+exception when others then
+  raise warning 'notify_email(%) failed: %', tg_table_name, sqlerrm;
+  return null;
+end;
+$fn$;
+
+-- Nothing calls this directly; it runs only as a trigger.
+revoke all on function notify_email() from public, anon, authenticated;
+
+drop trigger if exists orders_notify        on orders;
+drop trigger if exists custom_orders_notify on custom_orders;
+drop trigger if exists complaints_notify    on complaints;
+
+create trigger orders_notify
+  after insert on orders
+  for each row execute function notify_email();
+
+create trigger custom_orders_notify
+  after insert on custom_orders
+  for each row execute function notify_email();
+
+create trigger complaints_notify
+  after insert on complaints
+  for each row execute function notify_email();
+
 -- ═══════════════════════════════════════════════════════════════════════════
 --  BOOTSTRAP — do this once, by hand, after creating your admin user in
 --  Dashboard → Authentication → Users → Add user.
@@ -805,4 +892,48 @@ create policy "receipts_admin_read" on storage.objects
 --  And turn OFF public signups:
 --    Dashboard → Authentication → Providers → Email → "Allow new users to
 --    sign up" = off. You are the only account this project ever needs.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+
+-- ═══════════════════════════════════════════════════════════════════════════
+--  EMAIL SETUP — do this once, by hand, to switch the triggers above on.
+--
+--  Until both secrets exist, notify_email() returns quietly and no mail is
+--  sent. Nothing else breaks.
+--
+--  1. Deploy the Edge Function:
+--       supabase functions deploy notify --no-verify-jwt
+--
+--  2. In Dashboard -> Edge Functions -> Secrets, add:
+--       RESEND_API_KEY      your Resend API key (re_...)
+--       NOTIFY_HOOK_SECRET  the same random value used in step 3
+--
+--     Optional overrides (the function has sensible defaults):
+--       RESEND_FROM   Krystal Beaded Bliss <support@kbbjewelries.com>
+--       ADMIN_EMAIL   where new-order and complaint alerts land
+--       REPLY_TO      where customer replies land
+--       SITE_URL      https://kbbjewelries.com
+--
+--  3. Put the URL and that same secret into Vault:
+--
+--       select vault.create_secret(
+--         'https://<project-ref>.supabase.co/functions/v1/notify',
+--         'notify_function_url',
+--         'Endpoint for order and complaint email'
+--       );
+--
+--       select vault.create_secret(
+--         '<the same random value as NOTIFY_HOOK_SECRET>',
+--         'notify_hook_secret',
+--         'Shared secret proving the caller is this database'
+--       );
+--
+--     To rotate later, replace rather than re-create:
+--       select vault.update_secret(id, '<new value>')
+--         from vault.secrets where name = 'notify_hook_secret';
+--
+--  4. Verify — place a test order, then check:
+--       select id, status_code, created
+--         from net._http_response order by created desc limit 5;
+--     202/200 means delivered. 401 means the two secrets disagree.
 -- ═══════════════════════════════════════════════════════════════════════════
