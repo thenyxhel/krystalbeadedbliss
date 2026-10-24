@@ -188,8 +188,8 @@ export default function CustomBuilderPage() {
         <p className="eyebrow mb-2">One of one</p>
         <h1 className="h1">Design your own</h1>
         <p className="lede mt-4">
-          Nothing is charged here. We confirm the final price with you on WhatsApp before a
-          single bead is strung.
+          Nothing is charged here. Your request is emailed to you as soon as you send it, and
+          we confirm the final price with you on WhatsApp before a single bead is strung.
         </p>
       </header>
 

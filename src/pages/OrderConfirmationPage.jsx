@@ -60,8 +60,16 @@ export default function OrderConfirmationPage() {
 
       <p className="text-ink-2 mt-4 mx-auto" style={{ maxWidth: '46ch' }}>
         {isCustom
-          ? 'We have your design. We will message you on WhatsApp to confirm the details and the final price before anything is made.'
-          : 'We have your order and your receipt. We will confirm on WhatsApp as soon as the payment is verified.'}
+          ? 'We have your design, and a copy is on its way to your email. We will message you on WhatsApp to confirm the details and the final price before anything is made.'
+          : 'We have your order and your receipt. Your confirmation is on its way to your email, and we will message you on WhatsApp as soon as the payment is verified.'}
+      </p>
+
+      {/* An unannounced email about money someone just sent reads as phishing,
+          and lands unseen in spam. Saying it is coming is what makes it arrive
+          as reassurance — and a customer who goes looking for it is exactly
+          the signal that teaches a new sending domain it can be trusted. */}
+      <p className="help mt-3 mx-auto" style={{ maxWidth: '46ch' }}>
+        Not there in a few minutes? Check your spam folder.
       </p>
 
       <Rule className="my-10" />

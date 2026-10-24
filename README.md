@@ -241,7 +241,11 @@ unstuck.
 
 - **Orphaned receipts.** If the upload succeeds but `place_order()` fails, the
   file stays in storage unreferenced. Private and harmless; sweep occasionally.
-- **No transactional email.** Confirmation happens over WhatsApp by design.
+- **Email has no retry.** If a send fails, the only record is the Edge Function
+  log and Resend's own Logs tab -- nothing in Postgres says a receipt never went
+  out. Fine at this volume; revisit if email becomes business-critical.
+- **No mailbox on the domain.** Resend sends as `support@kbbjewelries.com`, but
+  nothing receives there. Customer replies are routed by `REPLY_TO` instead.
 - **No payment gateway.** Bank transfer plus a receipt.
 - **No tests.** The highest-value additions would be around `place_order()`:
   stock limits, price integrity, concurrent purchase of the last item.

@@ -235,7 +235,13 @@ export default function CheckoutPage() {
                 </Field>
 
                 <div className="grid sm:grid-cols-2 gap-5">
-                  <Field id="email" error={errors.email} showError={touched.email} label="Email" hint="For your receipt.">
+                  <Field
+                    id="email"
+                    error={errors.email}
+                    showError={touched.email}
+                    label="Email"
+                    hint="Your receipt and order updates go here."
+                  >
                     <input
                       id="email"
                       type="email"
@@ -364,8 +370,8 @@ export default function CheckoutPage() {
               <h2 className="h3 mb-2">Pay by bank transfer</h2>
               <p className="text-sm text-ink-2 mb-6">
                 Send <span className="numeric font-semibold text-ink">{fmt(subtotal)}</span> to the
-                account below, then upload the receipt. We confirm on WhatsApp once the payment
-                lands.
+                account below, then upload the receipt. Your confirmation is emailed to you
+                straight away, and we message you on WhatsApp once the payment lands.
               </p>
 
               {bankConfigured ? (

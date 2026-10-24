@@ -211,7 +211,7 @@ function buildOrderMails(r: Record<string, any>, custom: boolean): Mail[] {
      ${detail}
      ${callout(
        custom
-         ? `Confirm the estimate, then move it along in <a href="${SITE}/admin/custom-orders" style="color:${BRAND};">the admin panel</a>.`
+         ? `Confirm the estimate, then move it along in <a href="${SITE}/admin/orders" style="color:${BRAND};">the admin panel</a>.`
          : `Check the payment receipt and confirm it in <a href="${SITE}/admin/orders" style="color:${BRAND};">the admin panel</a>.`,
      )}`,
   )
