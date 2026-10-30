@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { CONFIG, categoryLabel, customCategories } from '../lib/config'
+import { CONFIG, bankConfigured, categoryLabel, customCategories } from '../lib/config'
 import { useSeo } from '../lib/useSeo'
-import { fmt, friendlyError } from '../lib/utils'
+import { fmt, friendlyError, receiptPath } from '../lib/utils'
 import Icon from '../components/Icon'
 import { Mark } from '../components/Brand'
+import PaymentPanel from '../components/PaymentPanel'
 
 /**
  * The steps are computed, not fixed.
@@ -27,7 +28,8 @@ const stepsFor = (style) => {
         ]
       : []),
     { key: 'charms', label: 'Charms', title: 'Any charms?' },
-    { key: 'details', label: 'You', title: 'How do we reach you?' },
+    { key: 'details', label: 'Delivery', title: 'Where are we sending it?' },
+    { key: 'payment', label: 'Payment', title: 'Pay by bank transfer' },
   ]
 }
 
@@ -37,7 +39,7 @@ export default function CustomBuilderPage() {
   useSeo({
     title: 'Design your own',
     description:
-      'Pick the piece, the beads or chains, the colour and the charms. Made by hand, with the price confirmed before anything starts.',
+      'Pick the piece, the beads or chains, the colour and the charms. Made by hand, with the details confirmed before anything starts.',
   })
 
   const [config, setConfig] = useState(null)
@@ -45,6 +47,7 @@ export default function CustomBuilderPage() {
   const [index, setIndex] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [receipt, setReceipt] = useState(null)
 
   const [form, setForm] = useState({
     pieceType: '',
@@ -57,6 +60,11 @@ export default function CustomBuilderPage() {
     name: '',
     email: '',
     phone: '',
+    address: '',
+    state: '',
+    isGift: false,
+    recipientName: '',
+    giftNote: '',
   })
 
   const steps = stepsFor(form.style)
@@ -115,17 +123,43 @@ export default function CustomBuilderPage() {
     details: () =>
       form.name.trim().length >= 2 &&
       /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email) &&
-      form.phone.replace(/\D/g, '').length >= 10,
+      form.phone.replace(/\D/g, '').length >= 10 &&
+      form.address.trim().length >= 8 &&
+      form.state.trim().length >= 2 &&
+      (!form.isGift || form.recipientName.trim().length >= 2),
+    payment: () => !!receipt && bankConfigured,
   }[step.key]()
 
   const submit = async () => {
+    if (!receipt) {
+      setError('Please upload your payment receipt.')
+      return
+    }
     setSubmitting(true)
     setError('')
+
+    // Same private bucket and unguessable name as the shop checkout.
+    const path = receiptPath(receipt)
+    const { error: uploadError } = await supabase.storage
+      .from('payment-receipts')
+      .upload(path, receipt, { contentType: receipt.type, upsert: false })
+
+    if (uploadError) {
+      setSubmitting(false)
+      setError(friendlyError(uploadError, 'We could not upload your receipt. Please try again.'))
+      return
+    }
 
     const { data, error: err } = await supabase.rpc('place_custom_order', {
       p_customer_name: form.name,
       p_email: form.email,
       p_phone: form.phone,
+      p_address: form.address,
+      p_state: form.state,
+      p_receipt_path: path,
+      p_is_gift: form.isGift,
+      p_recipient_name: form.isGift ? form.recipientName : null,
+      p_gift_note: form.isGift ? form.giftNote || null : null,
       p_piece_type: form.pieceType,
       p_style: form.style,
       p_bead_types: form.beadTypes,
@@ -137,7 +171,7 @@ export default function CustomBuilderPage() {
 
     if (err) {
       setSubmitting(false)
-      setError(friendlyError(err, 'We could not send your design. Please try again.'))
+      setError(friendlyError(err, 'We could not place your order. Please try again.'))
       return
     }
 
@@ -188,8 +222,8 @@ export default function CustomBuilderPage() {
         <p className="eyebrow mb-2">One of one</p>
         <h1 className="h1">Design your own</h1>
         <p className="lede mt-4">
-          Nothing is charged here. Your request is emailed to you as soon as you send it, and
-          we confirm the final price with you on WhatsApp before a single bead is strung.
+          Pick every detail, pay by bank transfer, and your order is emailed to you straight
+          away. We confirm the design with you on WhatsApp before a single bead is strung.
         </p>
       </header>
 
@@ -480,12 +514,29 @@ export default function CustomBuilderPage() {
 
               <hr className="hairline my-4" />
 
-              <p className="eyebrow mb-1">Estimated price</p>
+              <p className="eyebrow mb-1">Price</p>
               <p className="numeric font-display" style={{ fontSize: '1.875rem', fontWeight: 800, color: 'var(--gold)' }}>
                 {fmt(estimate)}
               </p>
-              <p className="help mt-1">Confirmed with you before we begin. Nothing is charged now.</p>
+              <p className="help mt-1">This is what you pay on the last step. If we need to change it, we agree it with you first.</p>
             </div>
+
+            <label
+              className="flex items-start gap-3 p-4 mb-6 cursor-pointer"
+              style={{
+                border: `1px solid ${form.isGift ? 'var(--accent)' : 'var(--line-strong)'}`,
+                borderRadius: 'var(--r-md)',
+                background: form.isGift ? 'var(--accent-wash)' : 'transparent',
+              }}
+            >
+              <input type="checkbox" className="mt-1" checked={form.isGift} onChange={(e) => set('isGift', e.target.checked)} />
+              <span>
+                <span className="block text-sm font-semibold">Order this as a gift</span>
+                <span className="block help m-0">
+                  We ship it straight to them, with a note from you inside if you like.
+                </span>
+              </span>
+            </label>
 
             <div className="flex flex-col gap-5">
               <div>
@@ -500,20 +551,86 @@ export default function CustomBuilderPage() {
                     Email
                   </label>
                   <input id="cb-email" type="email" inputMode="email" className="field" autoComplete="email" value={form.email} onChange={(e) => set('email', e.target.value)} required />
+                  <p className="help">Your receipt and order updates go here.</p>
                 </div>
                 <div>
                   <label className="label" htmlFor="cb-phone">
                     WhatsApp number
                   </label>
                   <input id="cb-phone" type="tel" inputMode="tel" className="field" autoComplete="tel" placeholder="0801 234 5678" value={form.phone} onChange={(e) => set('phone', e.target.value)} required />
+                  <p className="help">This is how we confirm your order.</p>
                 </div>
               </div>
+
+              {form.isGift && (
+                <div>
+                  <label className="label" htmlFor="cb-recipient">
+                    Recipient's full name
+                  </label>
+                  <input id="cb-recipient" className="field" value={form.recipientName} onChange={(e) => set('recipientName', e.target.value)} required />
+                </div>
+              )}
+
+              <div>
+                <label className="label" htmlFor="cb-address">
+                  {form.isGift ? "Recipient's delivery address" : 'Delivery address'}
+                </label>
+                <textarea
+                  id="cb-address"
+                  className="field"
+                  rows={2}
+                  style={{ resize: 'vertical' }}
+                  autoComplete="street-address"
+                  placeholder="House number, street, area"
+                  value={form.address}
+                  onChange={(e) => set('address', e.target.value)}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="label" htmlFor="cb-state">
+                  {form.isGift ? "Recipient's state" : 'State'}
+                </label>
+                <input id="cb-state" className="field" autoComplete="address-level1" placeholder="Lagos" value={form.state} onChange={(e) => set('state', e.target.value)} required />
+              </div>
+
+              {form.isGift && (
+                <div>
+                  <label className="label" htmlFor="cb-giftnote">
+                    Note for inside the package (optional)
+                  </label>
+                  <textarea
+                    id="cb-giftnote"
+                    className="field"
+                    rows={3}
+                    maxLength={500}
+                    style={{ resize: 'vertical' }}
+                    placeholder="Happy birthday! Thinking of you…"
+                    value={form.giftNote}
+                    onChange={(e) => set('giftNote', e.target.value)}
+                  />
+                  <p className="help">Written out by hand and tucked in with the gift. Leave blank to send none.</p>
+                </div>
+              )}
             </div>
+          </>
+        )}
+
+        {/* ── Payment ───────────────────────────────────────────────────── */}
+        {step.key === 'payment' && (
+          <>
+            <p className="text-sm text-ink-2 mb-6">
+              Send <span className="numeric font-semibold text-ink">{fmt(estimate)}</span> to the account
+              below, then upload the receipt. Your confirmation is emailed to you straight away, and we
+              message you on WhatsApp once the payment lands.
+            </p>
+            <PaymentPanel amount={estimate} receipt={receipt} onReceipt={setReceipt} onError={setError} />
           </>
         )}
       </div>
 
-      {index > 0 && index < steps.length - 1 && form.pieceType && (
+      {index > 0 && step.key !== 'details' && step.key !== 'payment' && form.pieceType && (
         <p className="flex items-center justify-between gap-3 mt-4 px-1" aria-live="polite">
           <span className="meta">Estimate so far</span>
           <span className="numeric font-bold" style={{ color: 'var(--gold)' }}>
@@ -545,10 +662,10 @@ export default function CustomBuilderPage() {
           <button type="button" className="btn btn-primary flex-1" disabled={!canAdvance || submitting} onClick={submit}>
             {submitting ? (
               <>
-                <Icon name="spinner" size={17} className="animate-spin" /> Sending…
+                <Icon name="spinner" size={17} className="animate-spin" /> Placing your order…
               </>
             ) : (
-              'Send my design'
+              'Place order'
             )}
           </button>
         )}

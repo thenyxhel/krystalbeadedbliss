@@ -32,7 +32,7 @@ export default function OrderConfirmationPage() {
       (summary?.pieceType ? ` Piece: ${summary.pieceType}.` : '') +
       (beads ? ` Beads: ${beads}.` : '') +
       (summary?.color ? ` Colour: ${summary.color}.` : '') +
-      ' Please confirm the details.'
+      ' I have uploaded my receipt. Please confirm.'
     : `Hi! I just placed order ${orderNumber} for ${fmt(total)} and uploaded my receipt. Please confirm.`
 
   const wa = whatsappLink(message)
@@ -60,7 +60,7 @@ export default function OrderConfirmationPage() {
 
       <p className="text-ink-2 mt-4 mx-auto" style={{ maxWidth: '46ch' }}>
         {isCustom
-          ? 'We have your design, and a copy is on its way to your email. We will message you on WhatsApp to confirm the details and the final price before anything is made.'
+          ? 'We have your design and your receipt, and a copy is on its way to your email. We will message you on WhatsApp to confirm the details and the payment before anything is made.'
           : 'We have your order and your receipt. Your confirmation is on its way to your email, and we will message you on WhatsApp as soon as the payment is verified.'}
       </p>
 
@@ -89,11 +89,10 @@ export default function OrderConfirmationPage() {
         {(total != null || estimatedPrice != null) && (
           <>
             <hr className="hairline my-5" />
-            <p className="eyebrow mb-1.5">{isCustom ? 'Estimated price' : 'Total'}</p>
+            <p className="eyebrow mb-1.5">Total</p>
             <p className="numeric font-display" style={{ fontSize: '1.5rem', fontWeight: 500 }}>
               {fmt(isCustom ? estimatedPrice : total)}
             </p>
-            {isCustom && <p className="help mt-1">Confirmed with you before we begin.</p>}
           </>
         )}
       </div>

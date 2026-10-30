@@ -170,7 +170,7 @@ function buildOrderMails(r: Record<string, any>, custom: boolean): Mail[] {
        <p style="margin:0 0 14px;font-size:18px;font-weight:700;letter-spacing:.04em;">${num}</p>`
 
   const intro = custom
-    ? `We have your custom ${esc(r.piece_type)} request. The estimate below is confirmed by hand before we begin &mdash; we&rsquo;ll be in touch shortly.`
+    ? `We have your custom ${esc(r.piece_type)} order${r.payment_receipt_path ? ' and your payment receipt' : ''}. We&rsquo;ll confirm the design with you on WhatsApp before we begin.`
     : 'We have your order and your payment receipt. Here is what you bought.'
 
   // 1 ─ Customer receipt
@@ -188,12 +188,13 @@ function buildOrderMails(r: Record<string, any>, custom: boolean): Mail[] {
   )
 
   // 2 ─ Admin alert
-  const shipping = custom
-    ? ''
-    : row('Deliver to', `${esc(r.address)}<br>${esc(r.state)}`) +
-      (isGift ? row('Gift for', esc(r.recipient_name)) : '') +
-      (r.gift_note ? row('Gift note', `<em>&ldquo;${esc(r.gift_note)}&rdquo;</em>`) : '') +
-      (r.notes ? row('Notes', esc(r.notes)) : '')
+  // Custom requests placed before delivery details existed have no address;
+  // the row is simply left out rather than printing "null".
+  const shipping =
+    (r.address ? row('Deliver to', `${esc(r.address)}<br>${esc(r.state)}`) : '') +
+    (isGift ? row('Gift for', esc(r.recipient_name)) : '') +
+    (r.gift_note ? row('Gift note', `<em>&ldquo;${esc(r.gift_note)}&rdquo;</em>`) : '') +
+    (r.notes ? row('Notes', esc(r.notes)) : '')
 
   const contact = table(
     row('Order number', `<strong>${num}</strong>`) +
@@ -210,9 +211,7 @@ function buildOrderMails(r: Record<string, any>, custom: boolean): Mail[] {
     `${contact}
      ${detail}
      ${callout(
-       custom
-         ? `Confirm the estimate, then move it along in <a href="${SITE}/admin/orders" style="color:${BRAND};">the admin panel</a>.`
-         : `Check the payment receipt and confirm it in <a href="${SITE}/admin/orders" style="color:${BRAND};">the admin panel</a>.`,
+       `Check the payment receipt and confirm it in <a href="${SITE}/admin/orders" style="color:${BRAND};">the admin panel</a>.`,
      )}`,
   )
 
@@ -228,7 +227,9 @@ function buildOrderMails(r: Record<string, any>, custom: boolean): Mail[] {
     {
       to: ADMIN_EMAIL,
       replyTo: r.email,
-      subject: custom ? `Custom request ${num} · ${naira(value)}` : `New order ${num} · ${naira(value)}`,
+      // The [KBB] tag gives a mail filter (and the search box) something
+      // stable to hold on to; the order number alone changes every time.
+      subject: custom ? `[KBB] Custom request ${num} · ${naira(value)}` : `[KBB] New order ${num} · ${naira(value)}`,
       html: adminHtml,
     },
   ]
@@ -320,6 +321,59 @@ function buildStatusMails(r: Record<string, any>, custom: boolean): Mail[] {
   return [{ to: r.email, replyTo: REPLY_TO, subject, html }]
 }
 
+// 6 ─ A customer finished a custom order from the track page: delivery
+//     details, a payment receipt, or both. `old` is the row before the update,
+//     which is how we know what was actually added.
+function buildCompletionMails(r: Record<string, any>, old: Record<string, any>): Mail[] {
+  const num = esc(r.order_number)
+  const addedDetails = old.address == null && r.address != null
+  const addedPayment = old.payment_receipt_path == null && r.payment_receipt_path != null
+  if (!addedDetails && !addedPayment) return []
+
+  const added = [addedDetails ? 'delivery details' : '', addedPayment ? 'payment receipt' : '']
+    .filter(Boolean)
+    .join(' and ')
+
+  const detailRows =
+    (addedDetails
+      ? row('Deliver to', `${esc(r.address)}<br>${esc(r.state)}`) +
+        (r.is_gift === true ? row('Gift for', esc(r.recipient_name)) : '') +
+        (r.gift_note ? row('Gift note', `<em>&ldquo;${esc(r.gift_note)}&rdquo;</em>`) : '')
+      : '') + (addedPayment ? row('Payment', 'Receipt uploaded &mdash; please check it') : '')
+
+  const customerHtml = shell(
+    'Thank you, we have it',
+    `<p style="margin:0 0 6px;">Hi ${esc(r.customer_name)},</p>
+     <p style="margin:0 0 18px;color:#5c514a;">
+       We&rsquo;ve added your ${added} to custom order <strong>${num}</strong>.
+       ${addedPayment ? 'We&rsquo;ll message you on WhatsApp once the payment is confirmed.' : ''}
+     </p>
+     ${table(row('Order number', `<strong>${num}</strong>`) + detailRows)}
+     ${callout(
+       `Track it any time at <a href="${SITE}/track" style="color:${BRAND};">kbbjewelries.com/track</a> with order number <strong>${num}</strong>.`,
+     )}`,
+  )
+
+  const adminHtml = shell(
+    `Order ${num} updated`,
+    `<p style="margin:0 0 14px;color:#5c514a;">${esc(r.customer_name)} added their ${added}.</p>
+     ${table(
+       row('Order number', `<strong>${num}</strong>`) +
+         row('Customer', esc(r.customer_name)) +
+         row('Phone', `<a href="tel:${esc(r.phone)}" style="color:${BRAND};">${esc(r.phone)}</a>`) +
+         detailRows,
+     )}
+     ${callout(
+       `Open it in <a href="${SITE}/admin/orders" style="color:${BRAND};">the admin panel</a>${addedPayment ? ' to check the receipt' : ''}.`,
+     )}`,
+  )
+
+  return [
+    { to: r.email, replyTo: REPLY_TO, subject: `We have your ${added} — order ${num}`, html: customerHtml },
+    { to: ADMIN_EMAIL, replyTo: r.email, subject: `[KBB] Order ${num} updated — ${added}`, html: adminHtml },
+  ]
+}
+
 // 3 ─ Complaint acknowledgement, plus an alert — a complaint nobody is told
 //     about is worse than having no complaint form at all.
 function buildComplaintMails(r: Record<string, any>): Mail[] {
@@ -356,7 +410,7 @@ function buildComplaintMails(r: Record<string, any>): Mail[] {
       subject: `We received your message about order ${num}`,
       html: customerHtml,
     },
-    { to: ADMIN_EMAIL, replyTo: r.email, subject: `Complaint · order ${num}`, html: adminHtml },
+    { to: ADMIN_EMAIL, replyTo: r.email, subject: `[KBB] Complaint · order ${num}`, html: adminHtml },
   ]
 }
 
@@ -408,6 +462,18 @@ async function send(mail: Mail) {
       subject: mail.subject,
       html: mail.html,
       ...(mail.replyTo ? { reply_to: [mail.replyTo] } : {}),
+      // Every message here is one somebody is waiting on: an order to action,
+      // or a receipt a customer is anxious about. These are the headers mail
+      // clients read for "high importance" (Outlook, Apple Mail, Thunderbird
+      // and most others). Gmail ignores them for its own "Important" marker,
+      // which is decided on the receiving side, so the shop inbox also wants a
+      // Gmail filter on the [KBB] subject tag.
+      headers: {
+        'X-Priority': '1',
+        'X-MSMail-Priority': 'High',
+        Importance: 'high',
+        Priority: 'urgent',
+      },
     }),
   })
 
@@ -431,6 +497,7 @@ Deno.serve(async (req) => {
     table?: string
     type?: string
     record?: Record<string, any>
+    old_record?: Record<string, any> | null
     action?: string
   }
   try {
@@ -467,7 +534,7 @@ Deno.serve(async (req) => {
     })
   }
 
-  const { table: tbl, type, record } = payload
+  const { table: tbl, type, record, old_record: oldRecord } = payload
   if (!record) return new Response('No record', { status: 400 })
 
   let mails: Mail[]
@@ -477,7 +544,14 @@ Deno.serve(async (req) => {
       mails = type === 'UPDATE' ? buildStatusMails(record, false) : buildOrderMails(record, false)
       break
     case 'custom_orders':
-      mails = type === 'UPDATE' ? buildStatusMails(record, true) : buildOrderMails(record, true)
+      // An UPDATE is either the admin moving the status, or the customer
+      // filling in their details. A status change wins if both somehow occur.
+      mails =
+        type !== 'UPDATE'
+          ? buildOrderMails(record, true)
+          : oldRecord && oldRecord.status === record.status
+            ? buildCompletionMails(record, oldRecord)
+            : buildStatusMails(record, true)
       break
     case 'complaints':
       // INSERT is the acknowledgement; UPDATE is the admin's actual reply.

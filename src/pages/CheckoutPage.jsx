@@ -2,15 +2,13 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext'
 import { supabase } from '../lib/supabase'
-import { CONFIG, bankConfigured } from '../lib/config'
+import { bankConfigured } from '../lib/config'
 import { useSeo } from '../lib/useSeo'
 import { fmt, friendlyError, receiptPath } from '../lib/utils'
 import { useToast } from '../components/Toast'
 import Icon from '../components/Icon'
 import { Mark } from '../components/Brand'
-
-const MAX_RECEIPT_BYTES = 5 * 1024 * 1024
-const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+import PaymentPanel from '../components/PaymentPanel'
 
 const STEPS = ['Your details', 'Payment']
 
@@ -87,20 +85,6 @@ export default function CheckoutPage() {
         </Link>
       </div>
     )
-  }
-
-  const pickReceipt = (file) => {
-    setError('')
-    if (!file) return
-    if (!ACCEPTED.includes(file.type)) {
-      setError('Please upload a JPG, PNG, WebP or PDF.')
-      return
-    }
-    if (file.size > MAX_RECEIPT_BYTES) {
-      setError('That file is larger than 5MB. Please upload a smaller one.')
-      return
-    }
-    setReceipt(file)
   }
 
   const submit = async () => {
@@ -374,59 +358,7 @@ export default function CheckoutPage() {
                 straight away, and we message you on WhatsApp once the payment lands.
               </p>
 
-              {bankConfigured ? (
-                <dl className="well p-5 m-0">
-                  {[
-                    ['Bank', CONFIG.bank.name],
-                    ['Account name', CONFIG.bank.accountName],
-                    ['Account number', CONFIG.bank.accountNumber],
-                    ['Amount', fmt(subtotal)],
-                  ].map(([key, value], i, arr) => (
-                    <div
-                      key={key}
-                      className="flex justify-between items-center gap-4 py-2.5"
-                      style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--line)' : 'none' }}
-                    >
-                      <dt className="text-sm text-ink-2">{key}</dt>
-                      <dd className="numeric text-sm font-semibold m-0 text-right">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              ) : (
-                <div className="well p-5" style={{ borderColor: 'var(--bad)' }}>
-                  <p className="text-sm" style={{ color: 'var(--bad)' }}>
-                    Bank details are not configured. Set VITE_BANK_NAME, VITE_BANK_ACCOUNT_NAME and
-                    VITE_BANK_ACCOUNT_NUMBER in your environment.
-                  </p>
-                </div>
-              )}
-
-              <div className="mt-6">
-                <span className="label">Payment receipt</span>
-                <label
-                  className="flex flex-col items-center justify-center gap-2 py-9 px-4 text-center cursor-pointer"
-                  style={{
-                    border: `1.5px dashed ${receipt ? 'var(--accent)' : 'var(--line-strong)'}`,
-                    borderRadius: 'var(--r-md)',
-                    background: receipt ? 'var(--accent-wash)' : 'var(--surface-2)',
-                  }}
-                >
-                  <Icon name={receipt ? 'check' : 'upload'} size={22} className={receipt ? 'text-accent' : 'text-ink-3'} />
-                  <span className="text-sm font-medium text-ink">
-                    {receipt ? receipt.name : 'Choose a file or take a photo'}
-                  </span>
-                  <span className="help m-0">JPG, PNG, WebP or PDF · up to 5MB</span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,application/pdf"
-                    className="sr-only"
-                    onChange={(e) => pickReceipt(e.target.files?.[0])}
-                  />
-                </label>
-                <p className="help">
-                  Your receipt is stored privately and is only ever seen by us.
-                </p>
-              </div>
+              <PaymentPanel amount={subtotal} receipt={receipt} onReceipt={setReceipt} onError={setError} />
 
               {error && (
                 <p className="error-text mt-4 flex items-start gap-2" role="alert">

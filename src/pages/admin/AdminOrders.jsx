@@ -257,12 +257,15 @@ export default function AdminOrders() {
                 <Detail label="Name" value={selected.customer_name} />
                 <Detail label="Phone" value={selected.phone} href={`tel:${selected.phone}`} />
                 <Detail label="Email" value={selected.email} href={`mailto:${selected.email}`} />
-                {!isCustom && selected.is_gift && <Detail label="Gift for" value={selected.recipient_name} />}
-                {!isCustom && selected.is_gift && (
+                {selected.is_gift && <Detail label="Gift for" value={selected.recipient_name} />}
+                {selected.is_gift && (
                   <Detail label="Gift note" value={selected.gift_note || 'No note — send without one'} full />
                 )}
-                {!isCustom && <Detail label="State" value={selected.state} />}
-                {!isCustom && <Detail label="Address" value={selected.address} full />}
+                {selected.state && <Detail label="State" value={selected.state} />}
+                {selected.address && <Detail label="Address" value={selected.address} full />}
+                {isCustom && !selected.address && (
+                  <Detail label="Address" value="Not given yet — the customer can add it from the track page" full />
+                )}
                 {selected.notes && <Detail label="Notes" value={selected.notes} full />}
               </div>
 
@@ -323,27 +326,23 @@ export default function AdminOrders() {
               )}
 
               {/* Receipt */}
-              {!isCustom && (
+              <hr className="hairline my-5" />
+              <p className="label">Payment receipt</p>
+              {receiptState === 'loading' && (
+                <p className="text-sm text-ink-3 flex items-center gap-2">
+                  <Icon name="spinner" size={15} className="animate-spin" /> Preparing a secure link…
+                </p>
+              )}
+              {receiptState === 'none' && <p className="text-sm text-ink-3">No receipt was attached.</p>}
+              {receiptState === 'ready' && receiptUrl && (
                 <>
-                  <hr className="hairline my-5" />
-                  <p className="label">Payment receipt</p>
-                  {receiptState === 'loading' && (
-                    <p className="text-sm text-ink-3 flex items-center gap-2">
-                      <Icon name="spinner" size={15} className="animate-spin" /> Preparing a secure link…
-                    </p>
-                  )}
-                  {receiptState === 'none' && <p className="text-sm text-ink-3">No receipt was attached.</p>}
-                  {receiptState === 'ready' && receiptUrl && (
-                    <>
-                      <a href={receiptUrl} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm no-underline">
-                        <Icon name="image" size={15} />
-                        Open receipt
-                      </a>
-                      <p className="help">
-                        This link is signed and expires in 60 seconds. Receipts are never public.
-                      </p>
-                    </>
-                  )}
+                  <a href={receiptUrl} target="_blank" rel="noreferrer" className="btn btn-outline btn-sm no-underline">
+                    <Icon name="image" size={15} />
+                    Open receipt
+                  </a>
+                  <p className="help">
+                    This link is signed and expires in 60 seconds. Receipts are never public.
+                  </p>
                 </>
               )}
 

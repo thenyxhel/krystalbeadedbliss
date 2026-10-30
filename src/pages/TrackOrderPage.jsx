@@ -6,6 +6,7 @@ import { fmt, formatDate, statusMeta } from '../lib/utils'
 import { whatsappLink } from '../lib/config'
 import { useToast } from '../components/Toast'
 import Icon from '../components/Icon'
+import CompleteOrderPanel from '../components/CompleteOrderPanel'
 
 const TIMELINE = ['pending', 'confirmed', 'processing', 'shipped', 'delivered']
 
@@ -22,13 +23,16 @@ export default function TrackOrderPage() {
   const [order, setOrder] = useState(null)
   const [state, setState] = useState('idle') // idle | searching | found | missing | error
 
-  const search = async (e) => {
+  const search = async (e, again = false) => {
     e?.preventDefault()
     const value = input.trim().toUpperCase()
     if (!value) return
 
-    setState('searching')
-    setOrder(null)
+    // Refreshing after a save keeps the card on screen instead of flashing it away.
+    if (!again) {
+      setState('searching')
+      setOrder(null)
+    }
     setParams({ order: value }, { replace: true })
 
     const { data, error } = await supabase.rpc('track_order', { p_order_number: value })
@@ -51,6 +55,8 @@ export default function TrackOrderPage() {
 
   const meta = order ? statusMeta(order.status) : null
   const stepIndex = order ? TIMELINE.indexOf(order.status) : -1
+  const open = order && order.status !== 'cancelled' && order.status !== 'delivered'
+  const incomplete = open && order.is_custom && (order.needs_details || order.needs_payment)
   const wa = order ? whatsappLink(`Hi! I am asking about order ${order.order_number}.`) : null
 
   const copy = async () => {
@@ -194,6 +200,8 @@ export default function TrackOrderPage() {
               <p className="font-medium">{meta.label}</p>
               <p className="text-sm text-ink-2 mt-1">{meta.blurb}</p>
             </div>
+
+            {incomplete && <CompleteOrderPanel order={order} onDone={() => search(null, true)} />}
 
             <dl className="m-0 mt-6 text-sm">
               {[
